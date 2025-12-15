@@ -114,17 +114,17 @@
 
     const lastSpy = spyPts.length ? spyPts[spyPts.length - 1][0] : NaN;
     const lastHyg = hygPts.length ? hygPts[hygPts.length - 1][0] : NaN;
-    const last = Math.max(lastSpy || -Infinity, lastHyg || -Infinity);
+    const lastTs = Math.max(lastSpy || -Infinity, lastHyg || -Infinity);
     const rangeInfo = `SPY pts: ${spyPts.length} | HYG pts: ${hygPts.length}`;
     document.getElementById("meta").textContent =
-      `Last date: ${Number.isFinite(last) ? toIso(last) : "unknown"} · ${rangeInfo}`;
+      `Last date: ${Number.isFinite(lastTs) ? toIso(lastTs) : "unknown"} · ${rangeInfo}`;
 
-    let signal = "⚖️ No clear divergence";
-    if (spySlope > 0 && hygSlope < 0) signal = "⚠️ Bearish divergence: SPY strengthening while HYG weakens";
-    if (spySlope > 0 && hygSlope > 0) signal = "✅ Risk-on confirmation: SPY and HYG aligned (both strengthening)";
-    if (spySlope < 0 && hygSlope > 0) signal = "⚠️ Opposite divergence: SPY weakening while HYG strengthens";
+    let message = "⚖️ No clear divergence";
+    if (spySlope > 0 && hygSlope < 0) message = "⚠️ Bearish divergence: SPY strengthening while HYG weakens";
+    if (spySlope > 0 && hygSlope > 0) message = "✅ Risk-on confirmation: SPY and HYG aligned (both strengthening)";
+    if (spySlope < 0 && hygSlope > 0) message = "⚠️ Opposite divergence: SPY weakening while HYG strengthens";
 
-    document.getElementById("signal").textContent = signal;
+    document.getElementById("signal").textContent = message;
   })().catch(err => {
     document.getElementById("meta").textContent = "Error loading data.";
     document.getElementById("signal").textContent = String(err);
