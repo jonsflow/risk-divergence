@@ -362,6 +362,8 @@ function analyzeAndRender() {
   // Analyze each pair
   analyzePair("spy-hyg", "SPY", "HYG", "#4a9eff", "#ff6b6b");
   analyzePair("qqq-tlt", "QQQ", "TLT", "#10b981", "#f59e0b");
+  analyzePair("spy-gld", "SPY", "GLD", "#4a9eff", "#fbbf24");
+  analyzePair("spy-iwm", "SPY", "IWM", "#4a9eff", "#8b5cf6");
 }
 
 // =============================================================================
@@ -371,7 +373,7 @@ function analyzeAndRender() {
 (async function main() {
   try {
     // Load all symbols (gracefully handle missing files)
-    const symbols = ["spy", "hyg", "qqq", "tlt"];
+    const symbols = ["spy", "hyg", "qqq", "tlt", "gld", "iwm"];
 
     for (const sym of symbols) {
       try {

@@ -26,11 +26,13 @@ jobs:
           curl -sS "https://stooq.com/q/d/l/?s=HYG.US&i=d" -o data/hyg.csv
           curl -sS "https://stooq.com/q/d/l/?s=QQQ.US&i=d" -o data/qqq.csv
           curl -sS "https://stooq.com/q/d/l/?s=TLT.US&i=d" -o data/tlt.csv
+          curl -sS "https://stooq.com/q/d/l/?s=GLD.US&i=d" -o data/gld.csv
+          curl -sS "https://stooq.com/q/d/l/?s=IWM.US&i=d" -o data/iwm.csv
 
       - name: Commit changes (if any)
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/spy.csv data/hyg.csv data/qqq.csv data/tlt.csv
+          git add data/*.csv
           git diff --cached --quiet || git commit -m "Update data (Stooq CSV)"
           git push
