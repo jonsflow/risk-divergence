@@ -2,8 +2,8 @@ name: Update market data (Stooq → data/*.csv)
 
 on:
   schedule:
-    # Weekdays every 30 minutes (cron is UTC)
-    - cron: "*/30 * * * 1-5"
+    # Once per day at 02:00 UTC on weekdays (after market close + data update)
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 permissions:
