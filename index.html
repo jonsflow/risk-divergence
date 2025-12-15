@@ -60,9 +60,25 @@
   </div>
 
   <div class="card" style="margin-top:18px">
+    <h2 style="font-size:16px;margin:0 0 10px">How Swing High Detection Works</h2>
+    <div class="muted" style="font-size:13px;line-height:1.7">
+      <b>1. What is a swing high?</b> A day where the price is higher than the days around it (like a peak on a mountain range)
+      <br><br>
+      <b>2. Find ALL the peaks:</b> We look through every day in your lookback period (20, 50, or 100 days) and find every peak
+      <br><br>
+      <b>3. Pick the 2 HIGHEST peaks:</b> Sort all those peaks by price and take the top 2 (not the most recent, but the actual highest prices)
+      <br><br>
+      <b>4. Draw the line:</b> Connect those 2 peaks with a golden line. If the line goes up → "Higher Highs", if it goes down → "Lower Highs"
+      <br><br>
+      <b>5. The divergence signal:</b> When SPY's line goes up while HYG's line goes down (or vice versa), that's a divergence
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
     <div class="muted" style="text-align:center;font-size:12px">
       Data provided by <a href="https://stooq.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Stooq</a>
       · Inspired by <a href="https://tradebrigade.co" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Trade Brigade</a>
+      · Vibe-coded with <a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Claude Code</a>
     </div>
   </div>
 
