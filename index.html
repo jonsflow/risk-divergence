@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SPY–HYG Divergence</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 28px; background:#0f0f10; color:#e9e9ea; }
+    .card { max-width: 720px; background:#17181b; padding: 18px 18px 14px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { margin: 0 0 8px; font-size: 20px; }
+    .muted { color:#a7a7ad; font-size: 13px; }
+    .row { display:flex; gap:14px; flex-wrap:wrap; margin-top: 12px; }
+    .pill { background:#22242a; padding: 10px 12px; border-radius: 12px; min-width: 200px; }
+    .signal { font-size: 18px; margin-top: 12px; }
+    code { color:#d5d5ff; }
+  </style>
+  <meta name="description" content="Simple SPY–HYG divergence signal computed client-side from JSON time-series built by GitHub Actions." />
+</head>
+<body>
+  <div class="card">
+    <h1>SPY ↔ HYG Divergence</h1>
+    <div class="muted" id="meta">Loading data…</div>
+
+    <div class="row">
+      <div class="pill"><div class="muted">Lookback</div><div><code id="lookback"></code></div></div>
+      <div class="pill"><div class="muted">SPY slope</div><div><code id="spySlope"></code></div></div>
+      <div class="pill"><div class="muted">HYG slope</div><div><code id="hygSlope"></code></div></div>
+    </div>
+
+    <div class="signal" id="signal"></div>
+    <div class="muted" style="margin-top:10px">
+      Divergence definition here: compute slope of <b>daily returns</b> over the lookback window.
+      Divergence = SPY slope &gt; 0 while HYG slope &lt; 0.
+    </div>
+  </div>
+
+<script>
+  // ----- TUNABLES -----
+  const LOOKBACK = 20;   // number of return points used for slope
+  const RETURN_LAG = 1;  // 1 = daily returns; set 5 for 5-day returns
+
+  // ----- HELPERS -----
+  function toIso(epochSec) {
+    return new Date(epochSec * 1000).toISOString().replace("T", " ").slice(0, 16) + "Z";
+  }
+
+  function calcReturns(points, lag) {
+    // points = [[t, close], ...]
+    const closes = points.map(p => p[1]);
+    const rets = [];
+    for (let i = lag; i < closes.length; i++) {
+      const prev = closes[i - lag];
+      const cur = closes[i];
+      rets.push((cur - prev) / prev);
+    }
+    return rets;
+  }
+
+  function slope(y) {
+    // simple least-squares slope over equally spaced x = 0..n-1
+    const n = y.length;
+    if (n < 2) return NaN;
+    let sx=0, sy=0, sxy=0, sxx=0;
+    for (let i = 0; i < n; i++) {
+      sx += i; sy += y[i]; sxy += i * y[i]; sxx += i * i;
+    }
+    const denom = (n * sxx - sx * sx);
+    return denom === 0 ? NaN : (n * sxy - sx * sy) / denom;
+  }
+
+  async function loadCsvPoints(path) {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) throw new Error(`Fetch failed ${r.status} for ${path}`);
+    const text = await r.text();
+    const lines = text.trim().split(/\r?\n/);
+    const header = lines.shift(); // Date,Open,High,Low,Close,Volume
+    const points = [];
+    for (const line of lines) {
+      const [date, , , , close] = line.split(",");
+      if (!date || !close || date === "Date" || close === "Close") continue;
+      const t = Math.floor(new Date(date + "T00:00:00Z").getTime() / 1000);
+      const c = Number(close);
+      if (!Number.isFinite(t) || !Number.isFinite(c)) continue;
+      points.push([t, c]);
+    }
+    points.sort((a, b) => a[0] - b[0]);
+    return points;
+  }
+
+  function last(arr, n) {
+    return arr.slice(Math.max(0, arr.length - n));
+  }
+
+  function fmt(x) {
+    return Number.isFinite(x) ? x.toFixed(6) : "NaN";
+  }
+
+  // ----- MAIN -----
+  (async function main() {
+    const [spyPts, hygPts] = await Promise.all([
+      loadCsvPoints("./data/spy.csv"),
+      loadCsvPoints("./data/hyg.csv"),
+    ]);
+
+    const spyR = calcReturns(spyPts, RETURN_LAG);
+    const hygR = calcReturns(hygPts, RETURN_LAG);
+
+    const spySlope = slope(last(spyR, LOOKBACK));
+    const hygSlope = slope(last(hygR, LOOKBACK));
+
+    document.getElementById("lookback").textContent = `${LOOKBACK} returns (lag=${RETURN_LAG})`;
+    document.getElementById("spySlope").textContent = fmt(spySlope);
+    document.getElementById("hygSlope").textContent = fmt(hygSlope);
+
+    const lastSpy = spyPts.length ? spyPts[spyPts.length - 1][0] : NaN;
+    const lastHyg = hygPts.length ? hygPts[hygPts.length - 1][0] : NaN;
+    const last = Math.max(lastSpy || -Infinity, lastHyg || -Infinity);
+    const rangeInfo = `SPY pts: ${spyPts.length} | HYG pts: ${hygPts.length}`;
+    document.getElementById("meta").textContent =
+      `Last date: ${Number.isFinite(last) ? toIso(last) : "unknown"} · ${rangeInfo}`;
+
+    let signal = "⚖️ No clear divergence";
+    if (spySlope > 0 && hygSlope < 0) signal = "⚠️ Bearish divergence: SPY strengthening while HYG weakens";
+    if (spySlope > 0 && hygSlope > 0) signal = "✅ Risk-on confirmation: SPY and HYG aligned (both strengthening)";
+    if (spySlope < 0 && hygSlope > 0) signal = "⚠️ Opposite divergence: SPY weakening while HYG strengthens";
+
+    document.getElementById("signal").textContent = signal;
+  })().catch(err => {
+    document.getElementById("meta").textContent = "Error loading data.";
+    document.getElementById("signal").textContent = String(err);
+  });
+</script>
+</body>
+</html>

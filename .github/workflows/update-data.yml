@@ -1,0 +1,34 @@
+name: Update market data (Stooq → data/*.csv)
+
+on:
+  schedule:
+    # Weekdays every 30 minutes (cron is UTC)
+    - cron: "*/30 * * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Stooq daily CSV
+        run: |
+          mkdir -p data
+          curl -sS "https://stooq.com/q/d/l/?s=SPY.US&i=d" -o data/spy.csv
+          curl -sS "https://stooq.com/q/d/l/?s=HYG.US&i=d" -o data/hyg.csv
+
+      - name: Commit changes (if any)
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add data/spy.csv data/hyg.csv
+          git diff --cached --quiet || git commit -m "Update data (Stooq CSV)"
+          git push
