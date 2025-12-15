@@ -52,7 +52,9 @@ async function loadCsvPoints(path) {
 // =============================================================================
 
 /**
- * Find ALL swing highs in the data, then return the N highest ones by price.
+ * LEGACY METHOD - NOT CURRENTLY USED
+ * Find the N highest swing highs by price, returned chronologically.
+ * This was the original approach but has been replaced with ThinkScript-style pivot detection.
  *
  * @param {Array} points - Array of [timestamp, price] tuples
  * @param {Number} maxSwings - How many swing highs to return (default 2)
@@ -96,8 +98,68 @@ function findRecentSwingHighs(points, maxSwings = 2, barsEachSide = 1) {
   swingHighs.sort((a, b) => b.price - a.price);
   const topN = swingHighs.slice(0, maxSwings);
 
-  // Sort by time (chronological order) for drawing the line
+  // Sort chronologically for display
   return topN.sort((a, b) => a.time - b.time);
+}
+
+/**
+ * ACTIVE METHOD - ThinkScript-style pivot detection
+ * Find swing highs using ThinkScript-style pivot detection.
+ * Based on the RSI_With_Divergence indicator logic.
+ *
+ * @param {Array} points - Array of [timestamp, price] tuples
+ * @param {Number} leftBars - Bars to the left that must be lower
+ * @param {Number} rightBars - Bars to the right that must be lower
+ * @returns {Array} Array of {idx, time, price} objects for all pivot highs
+ */
+function findPivotHighs(points, leftBars = 2, rightBars = 2) {
+  const pivotHighs = [];
+
+  // We can only check pivots starting from leftBars and ending at length - rightBars
+  for (let i = leftBars; i < points.length - rightBars; i++) {
+    const curr = points[i][1];
+    let isPivotHigh = true;
+
+    // Check leftBars before current bar
+    for (let j = 1; j <= leftBars; j++) {
+      if (points[i - j][1] >= curr) {
+        isPivotHigh = false;
+        break;
+      }
+    }
+
+    // Check rightBars after current bar (only if still a candidate)
+    if (isPivotHigh) {
+      for (let j = 1; j <= rightBars; j++) {
+        if (points[i + j][1] >= curr) {
+          isPivotHigh = false;
+          break;
+        }
+      }
+    }
+
+    if (isPivotHigh) {
+      pivotHighs.push({ idx: i, time: points[i][0], price: curr });
+    }
+  }
+
+  return pivotHighs;
+}
+
+/**
+ * ACTIVE METHOD - Get the last N pivot highs chronologically (ThinkScript style).
+ * This is the currently active detection method.
+ *
+ * @param {Array} points - Array of [timestamp, price] tuples
+ * @param {Number} maxPivots - How many pivots to return (default 2)
+ * @param {Number} barsEachSide - How many bars on each side (default based on lookback)
+ * @returns {Array} Array of {idx, time, price} objects, sorted chronologically
+ */
+function findRecentPivotHighs(points, maxPivots = 2, barsEachSide = 2) {
+  const allPivots = findPivotHighs(points, barsEachSide, barsEachSide);
+
+  // Return the last N pivots chronologically
+  return allPivots.slice(-maxPivots);
 }
 
 // Legacy functions (not currently used, but kept for reference)
@@ -282,8 +344,10 @@ function analyzePair(pairId, symbol1, symbol2, color1, color2) {
 
   // Scale bars required based on lookback period: 20d→2 bars, 50d→5 bars, 100d→10 bars
   const barsEachSide = Math.max(2, Math.floor(LOOKBACK_DAYS / 10));
-  const top2_1 = findRecentSwingHighs(recent1, 2, barsEachSide);
-  const top2_2 = findRecentSwingHighs(recent2, 2, barsEachSide);
+
+  // Use ThinkScript-style pivot detection (last 2 pivots chronologically)
+  const top2_1 = findRecentPivotHighs(recent1, 2, barsEachSide);
+  const top2_2 = findRecentPivotHighs(recent2, 2, barsEachSide);
 
   // Calculate trends
   const trend1 = calculateTrend(top2_1);
