@@ -23,49 +23,104 @@
 
     <div class="row">
       <div class="pill"><div class="muted">Lookback</div><div><code id="lookback"></code></div></div>
-      <div class="pill"><div class="muted">SPY slope</div><div><code id="spySlope"></code></div></div>
-      <div class="pill"><div class="muted">HYG slope</div><div><code id="hygSlope"></code></div></div>
+      <div class="pill"><div class="muted">SPY Trend</div><div><code id="spySlope"></code></div></div>
+      <div class="pill"><div class="muted">HYG Trend</div><div><code id="hygSlope"></code></div></div>
     </div>
 
     <div class="signal" id="signal"></div>
     <div class="muted" style="margin-top:10px">
-      Divergence definition here: compute slope of <b>daily returns</b> over the lookback window.
-      Divergence = SPY slope &gt; 0 while HYG slope &lt; 0.
+      Divergence definition: Identifies when SPY makes <b>higher highs</b> while HYG makes <b>lower lows</b> (or vice versa).
+      Swing points detected using a 5-day window.
     </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2 style="font-size:16px;margin:0 0 12px">SPY Price Chart</h2>
+    <div id="chartSpy" style="width:100%;height:200px"></div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2 style="font-size:16px;margin:0 0 12px">HYG Price Chart</h2>
+    <div id="chartHyg" style="width:100%;height:200px"></div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2 style="font-size:16px;margin:0 0 12px">SPY/HYG Ratio</h2>
+    <div id="chartRatio" style="width:100%;height:200px"></div>
   </div>
 
 <script>
   // ----- TUNABLES -----
-  const LOOKBACK = 20;   // number of return points used for slope
-  const RETURN_LAG = 1;  // 1 = daily returns; set 5 for 5-day returns
+  const LOOKBACK_DAYS = 90;   // number of days to analyze for divergence (configurable)
+  const SWING_WINDOW = 5;     // days on each side to identify swing highs/lows
 
   // ----- HELPERS -----
   function toIso(epochSec) {
-    return new Date(epochSec * 1000).toISOString().replace("T", " ").slice(0, 16) + "Z";
+    return new Date(epochSec * 1000).toISOString().replace("T", " ").slice(0, 10);
   }
 
-  function calcReturns(points, lag) {
-    // points = [[t, close], ...]
-    const closes = points.map(p => p[1]);
-    const rets = [];
-    for (let i = lag; i < closes.length; i++) {
-      const prev = closes[i - lag];
-      const cur = closes[i];
-      rets.push((cur - prev) / prev);
-    }
-    return rets;
+  function last(arr, n) {
+    return arr.slice(Math.max(0, arr.length - n));
   }
 
-  function slope(y) {
-    // simple least-squares slope over equally spaced x = 0..n-1
-    const n = y.length;
-    if (n < 2) return NaN;
-    let sx=0, sy=0, sxy=0, sxx=0;
-    for (let i = 0; i < n; i++) {
-      sx += i; sy += y[i]; sxy += i * y[i]; sxx += i * i;
+  // Find swing highs: points higher than neighbors within window
+  function findSwingHighs(points, window = 5) {
+    const swings = [];
+    for (let i = window; i < points.length - window; i++) {
+      const price = points[i][1];
+      let isHigh = true;
+      for (let j = i - window; j <= i + window; j++) {
+        if (j !== i && points[j][1] >= price) {
+          isHigh = false;
+          break;
+        }
+      }
+      if (isHigh) swings.push({ idx: i, time: points[i][0], price });
     }
-    const denom = (n * sxx - sx * sx);
-    return denom === 0 ? NaN : (n * sxy - sx * sy) / denom;
+    return swings;
+  }
+
+  // Find swing lows: points lower than neighbors within window
+  function findSwingLows(points, window = 5) {
+    const swings = [];
+    for (let i = window; i < points.length - window; i++) {
+      const price = points[i][1];
+      let isLow = true;
+      for (let j = i - window; j <= i + window; j++) {
+        if (j !== i && points[j][1] <= price) {
+          isLow = false;
+          break;
+        }
+      }
+      if (isLow) swings.push({ idx: i, time: points[i][0], price });
+    }
+    return swings;
+  }
+
+  // Detect higher highs: are recent swing highs increasing?
+  function hasHigherHighs(swingHighs) {
+    if (swingHighs.length < 2) return false;
+    const recent = swingHighs.slice(-3); // look at last 3 swing highs
+    if (recent.length < 2) return false;
+    // Check if generally trending up
+    let increasing = 0;
+    for (let i = 1; i < recent.length; i++) {
+      if (recent[i].price > recent[i-1].price) increasing++;
+    }
+    return increasing >= recent.length - 1; // at least one higher high
+  }
+
+  // Detect lower lows: are recent swing lows decreasing?
+  function hasLowerLows(swingLows) {
+    if (swingLows.length < 2) return false;
+    const recent = swingLows.slice(-3); // look at last 3 swing lows
+    if (recent.length < 2) return false;
+    // Check if generally trending down
+    let decreasing = 0;
+    for (let i = 1; i < recent.length; i++) {
+      if (recent[i].price < recent[i-1].price) decreasing++;
+    }
+    return decreasing >= recent.length - 1; // at least one lower low
   }
 
   async function loadCsvPoints(path) {
@@ -87,12 +142,69 @@
     return points;
   }
 
-  function last(arr, n) {
-    return arr.slice(Math.max(0, arr.length - n));
+  function fmt(x) {
+    return Number.isFinite(x) ? x.toFixed(2) : "N/A";
   }
 
-  function fmt(x) {
-    return Number.isFinite(x) ? x.toFixed(6) : "NaN";
+  // Simple SVG line chart renderer
+  function renderChart(containerId, points, color = "#4a9eff", label = "") {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const padding = { top: 10, right: 10, bottom: 25, left: 50 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    if (points.length === 0) {
+      container.innerHTML = '<div style="padding:20px;color:#666">No data</div>';
+      return;
+    }
+
+    // Extract values
+    const times = points.map(p => p[0]);
+    const values = points.map(p => p[1]);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const minTime = times[0];
+    const maxTime = times[times.length - 1];
+
+    // Scale functions
+    const xScale = (t) => padding.left + ((t - minTime) / (maxTime - minTime)) * chartWidth;
+    const yScale = (v) => padding.top + chartHeight - ((v - minVal) / (maxVal - minVal)) * chartHeight;
+
+    // Build path
+    let path = points.map((p, i) => {
+      const x = xScale(p[0]);
+      const y = yScale(p[1]);
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+
+    // Format dates for axis
+    const startDate = new Date(minTime * 1000).toISOString().slice(0, 10);
+    const endDate = new Date(maxTime * 1000).toISOString().slice(0, 10);
+
+    container.innerHTML = `
+      <svg width="${width}" height="${height}" style="display:block">
+        <!-- Grid lines -->
+        <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"
+              stroke="#333" stroke-width="1"/>
+        <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"
+              stroke="#333" stroke-width="1"/>
+
+        <!-- Chart line -->
+        <path d="${path}" fill="none" stroke="${color}" stroke-width="2" />
+
+        <!-- Y-axis labels -->
+        <text x="${padding.left - 5}" y="${padding.top + 5}" text-anchor="end" fill="#a7a7ad" font-size="11">${maxVal.toFixed(2)}</text>
+        <text x="${padding.left - 5}" y="${height - padding.bottom + 5}" text-anchor="end" fill="#a7a7ad" font-size="11">${minVal.toFixed(2)}</text>
+
+        <!-- X-axis labels -->
+        <text x="${padding.left}" y="${height - padding.bottom + 18}" text-anchor="start" fill="#a7a7ad" font-size="11">${startDate}</text>
+        <text x="${width - padding.right}" y="${height - padding.bottom + 18}" text-anchor="end" fill="#a7a7ad" font-size="11">${endDate}</text>
+      </svg>
+    `;
   }
 
   // ----- MAIN -----
@@ -102,15 +214,26 @@
       loadCsvPoints("./data/hyg.csv"),
     ]);
 
-    const spyR = calcReturns(spyPts, RETURN_LAG);
-    const hygR = calcReturns(hygPts, RETURN_LAG);
+    // Get recent data for analysis
+    const spyRecent = last(spyPts, LOOKBACK_DAYS);
+    const hygRecent = last(hygPts, LOOKBACK_DAYS);
 
-    const spySlope = slope(last(spyR, LOOKBACK));
-    const hygSlope = slope(last(hygR, LOOKBACK));
+    // Find swing points
+    const spyHighs = findSwingHighs(spyRecent, SWING_WINDOW);
+    const spyLows = findSwingLows(spyRecent, SWING_WINDOW);
+    const hygHighs = findSwingHighs(hygRecent, SWING_WINDOW);
+    const hygLows = findSwingLows(hygRecent, SWING_WINDOW);
 
-    document.getElementById("lookback").textContent = `${LOOKBACK} returns (lag=${RETURN_LAG})`;
-    document.getElementById("spySlope").textContent = fmt(spySlope);
-    document.getElementById("hygSlope").textContent = fmt(hygSlope);
+    // Detect trends
+    const spyMakingHigherHighs = hasHigherHighs(spyHighs);
+    const spyMakingLowerLows = hasLowerLows(spyLows);
+    const hygMakingHigherHighs = hasHigherHighs(hygHighs);
+    const hygMakingLowerLows = hasLowerLows(hygLows);
+
+    // Update display
+    document.getElementById("lookback").textContent = `${LOOKBACK_DAYS} days`;
+    document.getElementById("spySlope").textContent = spyMakingHigherHighs ? "Higher Highs ↗" : (spyMakingLowerLows ? "Lower Lows ↘" : "Sideways ↔");
+    document.getElementById("hygSlope").textContent = hygMakingHigherHighs ? "Higher Highs ↗" : (hygMakingLowerLows ? "Lower Lows ↘" : "Sideways ↔");
 
     const lastSpy = spyPts.length ? spyPts[spyPts.length - 1][0] : NaN;
     const lastHyg = hygPts.length ? hygPts[hygPts.length - 1][0] : NaN;
@@ -119,12 +242,43 @@
     document.getElementById("meta").textContent =
       `Last date: ${Number.isFinite(lastTs) ? toIso(lastTs) : "unknown"} · ${rangeInfo}`;
 
+    // Determine divergence signal
     let message = "⚖️ No clear divergence";
-    if (spySlope > 0 && hygSlope < 0) message = "⚠️ Bearish divergence: SPY strengthening while HYG weakens";
-    if (spySlope > 0 && hygSlope > 0) message = "✅ Risk-on confirmation: SPY and HYG aligned (both strengthening)";
-    if (spySlope < 0 && hygSlope > 0) message = "⚠️ Opposite divergence: SPY weakening while HYG strengthens";
+
+    if (spyMakingHigherHighs && hygMakingLowerLows) {
+      message = "⚠️ BEARISH DIVERGENCE: SPY making higher highs while HYG making lower lows (equities strong, credit weak)";
+    } else if (spyMakingLowerLows && hygMakingHigherHighs) {
+      message = "⚠️ OPPOSITE DIVERGENCE: SPY making lower lows while HYG making higher highs (unusual pattern)";
+    } else if (spyMakingHigherHighs && hygMakingHigherHighs) {
+      message = "✅ RISK-ON: Both SPY and HYG making higher highs (healthy bull market)";
+    } else if (spyMakingLowerLows && hygMakingLowerLows) {
+      message = "🔴 RISK-OFF: Both SPY and HYG making lower lows (bear market)";
+    }
 
     document.getElementById("signal").textContent = message;
+
+    // Render charts (last 180 days for better visibility)
+    const chartDays = 180;
+    const spyChart = last(spyPts, chartDays);
+    const hygChart = last(hygPts, chartDays);
+
+    renderChart("chartSpy", spyChart, "#4a9eff", "SPY");
+    renderChart("chartHyg", hygChart, "#ff6b6b", "HYG");
+
+    // Calculate and render ratio chart
+    // Align timestamps and calculate SPY/HYG ratio
+    const ratioPoints = [];
+    const spyMap = new Map(spyChart.map(p => [p[0], p[1]]));
+    const hygMap = new Map(hygChart.map(p => [p[0], p[1]]));
+
+    for (const [time, spyPrice] of spyMap) {
+      const hygPrice = hygMap.get(time);
+      if (hygPrice && hygPrice !== 0) {
+        ratioPoints.push([time, spyPrice / hygPrice]);
+      }
+    }
+
+    renderChart("chartRatio", ratioPoints, "#a78bfa", "SPY/HYG");
   })().catch(err => {
     document.getElementById("meta").textContent = "Error loading data.";
     document.getElementById("signal").textContent = String(err);
