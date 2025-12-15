@@ -6,7 +6,6 @@ body {
 }
 
 .card {
-  max-width: 720px;
   background: #17181b;
   padding: 18px 18px 14px;
   border-radius: 14px;
@@ -44,4 +43,65 @@ h1 {
 
 code {
   color: #d5d5ff;
+}
+
+/* Divergence pair columns */
+.pairs-container {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.pair-column {
+  flex: 1;
+  min-width: 300px;
+  background: #17181b;
+  padding: 18px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+.pair-column h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.pair-column .trends {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.pair-column .trend-item {
+  flex: 1;
+  background: #22242a;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 120px;
+}
+
+.pair-column .divergence-signal {
+  background: #22242a;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.pair-column .chart-container {
+  margin-top: 12px;
+}
+
+.pair-column .chart-title {
+  font-size: 13px;
+  color: #a7a7ad;
+  margin-bottom: 6px;
 }

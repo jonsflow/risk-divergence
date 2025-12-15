@@ -8,11 +8,12 @@
   <meta name="description" content="Simple SPY–HYG divergence signal computed client-side from JSON time-series built by GitHub Actions." />
 </head>
 <body>
+  <!-- Top Section: Lookback & Divergence Explanation -->
   <div class="card">
-    <h1>SPY ↔ HYG Divergence</h1>
+    <h1>Divergence Dashboard</h1>
     <div class="muted" id="meta">Loading data…</div>
 
-    <div class="row">
+    <div class="row" style="margin-top:12px">
       <div class="pill">
         <div class="muted">Lookback Period</div>
         <div>
@@ -23,31 +24,76 @@
           </select>
         </div>
       </div>
-      <div class="pill"><div class="muted">SPY Trend</div><div><code id="spySlope"></code></div></div>
-      <div class="pill"><div class="muted">HYG Trend</div><div><code id="hygSlope"></code></div></div>
     </div>
 
-    <div class="signal" id="signal"></div>
-    <div class="muted" style="margin-top:10px">
-      Divergence definition: <b>Bearish divergence</b> occurs when SPY makes <b>higher highs</b> while HYG makes <b>lower highs</b>.
-      <b>Bullish divergence</b> occurs when SPY makes <b>lower lows</b> while HYG makes <b>higher lows</b>.
-      Trend determined by the slope of the line connecting the two most recent swing highs.
+    <div class="muted" style="margin-top:14px;font-size:13px;line-height:1.6">
+      <b>Bearish divergence:</b> Asset 1 makes higher highs while Asset 2 makes lower highs (risk-off warning).
+      <br>
+      <b>Bullish divergence:</b> Asset 1 makes lower highs while Asset 2 makes higher highs (potential reversal).
+      <br>
+      <b>Aligned:</b> Both assets trending in the same direction (confirmation).
     </div>
   </div>
 
-  <div class="card" style="margin-top:18px">
-    <h2 style="font-size:16px;margin:0 0 12px">SPY Price Chart</h2>
-    <div id="chartSpy" style="width:100%;height:200px"></div>
-  </div>
+  <!-- Divergence Pairs Columns -->
+  <div class="pairs-container">
+    <!-- SPY ↔ HYG -->
+    <div class="pair-column">
+      <h2>SPY ↔ HYG</h2>
+      <div class="trends">
+        <div class="trend-item">
+          <span class="muted">SPY Trend</span>
+          <code id="spy-hyg-spy-trend"></code>
+        </div>
+        <div class="trend-item">
+          <span class="muted">HYG Trend</span>
+          <code id="spy-hyg-hyg-trend"></code>
+        </div>
+      </div>
+      <div class="divergence-signal" id="spy-hyg-signal"></div>
 
-  <div class="card" style="margin-top:18px">
-    <h2 style="font-size:16px;margin:0 0 12px">HYG Price Chart</h2>
-    <div id="chartHyg" style="width:100%;height:200px"></div>
-  </div>
+      <div class="chart-container">
+        <div class="chart-title">SPY Price</div>
+        <div id="chart-spy-hyg-spy" style="width:100%;height:150px"></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">HYG Price</div>
+        <div id="chart-spy-hyg-hyg" style="width:100%;height:150px"></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">SPY/HYG Ratio</div>
+        <div id="chart-spy-hyg-ratio" style="width:100%;height:150px"></div>
+      </div>
+    </div>
 
-  <div class="card" style="margin-top:18px">
-    <h2 style="font-size:16px;margin:0 0 12px">SPY/HYG Ratio</h2>
-    <div id="chartRatio" style="width:100%;height:200px"></div>
+    <!-- QQQ ↔ TLT -->
+    <div class="pair-column">
+      <h2>QQQ ↔ TLT</h2>
+      <div class="trends">
+        <div class="trend-item">
+          <span class="muted">QQQ Trend</span>
+          <code id="qqq-tlt-qqq-trend"></code>
+        </div>
+        <div class="trend-item">
+          <span class="muted">TLT Trend</span>
+          <code id="qqq-tlt-tlt-trend"></code>
+        </div>
+      </div>
+      <div class="divergence-signal" id="qqq-tlt-signal"></div>
+
+      <div class="chart-container">
+        <div class="chart-title">QQQ Price</div>
+        <div id="chart-qqq-tlt-qqq" style="width:100%;height:150px"></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">TLT Price</div>
+        <div id="chart-qqq-tlt-tlt" style="width:100%;height:150px"></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">QQQ/TLT Ratio</div>
+        <div id="chart-qqq-tlt-ratio" style="width:100%;height:150px"></div>
+      </div>
+    </div>
   </div>
 
   <div class="card" style="margin-top:18px">

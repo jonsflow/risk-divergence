@@ -6,8 +6,7 @@ let LOOKBACK_DAYS = 20;   // number of days to analyze for divergence (configura
 const SWING_WINDOW = 5;   // days on each side to identify swing highs/lows (legacy, not currently used)
 
 // Global data cache
-let spyPtsGlobal = [];
-let hygPtsGlobal = [];
+let dataCache = {};
 
 // =============================================================================
 // UTILITIES
@@ -262,90 +261,107 @@ function renderChart(containerId, points, color = "#4a9eff", label = "", swingHi
 // ANALYSIS & RENDERING
 // =============================================================================
 
-function analyzeAndRender() {
-  const spyPts = spyPtsGlobal;
-  const hygPts = hygPtsGlobal;
+/**
+ * Analyze a single divergence pair and update the UI
+ */
+function analyzePair(pairId, symbol1, symbol2, color1, color2) {
+  const pts1 = dataCache[symbol1.toLowerCase()];
+  const pts2 = dataCache[symbol2.toLowerCase()];
+
+  if (!pts1 || !pts2 || pts1.length === 0 || pts2.length === 0) {
+    console.warn(`Missing data for ${symbol1} or ${symbol2}`);
+    // Show "no data" message in the signal element
+    const elSignal = document.getElementById(`${pairId}-signal`);
+    if (elSignal) elSignal.textContent = "⏳ No data available yet";
+    return;
+  }
 
   // Get recent data for analysis
-  const spyRecent = last(spyPts, LOOKBACK_DAYS);
-  const hygRecent = last(hygPts, LOOKBACK_DAYS);
+  const recent1 = last(pts1, LOOKBACK_DAYS);
+  const recent2 = last(pts2, LOOKBACK_DAYS);
 
-  // Find the first 2 swing highs scanning backwards from today
   // Scale bars required based on lookback period: 20d→2 bars, 50d→5 bars, 100d→10 bars
   const barsEachSide = Math.max(2, Math.floor(LOOKBACK_DAYS / 10));
-  const spyTop2 = findRecentSwingHighs(spyRecent, 2, barsEachSide);
-  const hygTop2 = findRecentSwingHighs(hygRecent, 2, barsEachSide);
+  const top2_1 = findRecentSwingHighs(recent1, 2, barsEachSide);
+  const top2_2 = findRecentSwingHighs(recent2, 2, barsEachSide);
 
-  // Calculate trend based on the slope of the line we're drawing
-  let spyTrend = "Sideways ↔";
-  if (spyTop2.length >= 2) {
-    // If 2nd swing high is higher than 1st = Higher Highs
-    if (spyTop2[1].price > spyTop2[0].price) {
-      spyTrend = "Higher Highs ↗";
-    } else if (spyTop2[1].price < spyTop2[0].price) {
-      spyTrend = "Lower Highs ↘";
-    }
-  }
+  // Calculate trends
+  const trend1 = calculateTrend(top2_1);
+  const trend2 = calculateTrend(top2_2);
 
-  let hygTrend = "Sideways ↔";
-  if (hygTop2.length >= 2) {
-    // If 2nd swing high is higher than 1st = Higher Highs
-    if (hygTop2[1].price > hygTop2[0].price) {
-      hygTrend = "Higher Highs ↗";
-    } else if (hygTop2[1].price < hygTop2[0].price) {
-      hygTrend = "Lower Highs ↘";
-    }
-  }
+  // Update trend displays
+  const el1 = document.getElementById(`${pairId}-${symbol1.toLowerCase()}-trend`);
+  const el2 = document.getElementById(`${pairId}-${symbol2.toLowerCase()}-trend`);
+  if (el1) el1.textContent = trend1;
+  if (el2) el2.textContent = trend2;
 
-  // Update display
-  document.getElementById("spySlope").textContent = spyTrend;
-  document.getElementById("hygSlope").textContent = hygTrend;
+  // Determine divergence signal
+  const signal = getDivergenceSignal(trend1, trend2, symbol1, symbol2);
+  const elSignal = document.getElementById(`${pairId}-signal`);
+  if (elSignal) elSignal.textContent = signal;
 
-  const lastSpy = spyPts.length ? spyPts[spyPts.length - 1][0] : NaN;
-  const lastHyg = hygPts.length ? hygPts[hygPts.length - 1][0] : NaN;
-  const lastTs = Math.max(lastSpy || -Infinity, lastHyg || -Infinity);
-  document.getElementById("meta").textContent =
-    `Last updated: ${Number.isFinite(lastTs) ? toIso(lastTs) : "unknown"}`;
-
-  // Determine divergence signal based on trend slopes
-  let message = "⚖️ No clear divergence";
-
-  if (spyTrend === "Higher Highs ↗" && hygTrend === "Lower Highs ↘") {
-    message = "⚠️ BEARISH DIVERGENCE: SPY making higher highs while HYG making lower highs (equities strong, credit weak)";
-  } else if (spyTrend === "Lower Highs ↘" && hygTrend === "Higher Highs ↗") {
-    message = "⚠️ BULLISH DIVERGENCE: SPY making lower highs while HYG making higher highs (unusual pattern)";
-  } else if (spyTrend === "Higher Highs ↗" && hygTrend === "Higher Highs ↗") {
-    message = "✅ RISK-ON: Both SPY and HYG making higher highs (healthy bull market)";
-  } else if (spyTrend === "Lower Highs ↘" && hygTrend === "Lower Highs ↘") {
-    message = "🔴 RISK-OFF: Both SPY and HYG making lower highs (bear market)";
-  }
-
-  document.getElementById("signal").textContent = message;
-
-  // Render charts with EXACTLY the lookback period
-  const spyChart = spyRecent; // Use the same data we analyzed
-  const hygChart = hygRecent; // Use the same data we analyzed
-
-  renderChart("chartSpy", spyChart, "#4a9eff", "SPY", spyTop2);
-  renderChart("chartHyg", hygChart, "#ff6b6b", "HYG", hygTop2);
+  // Render charts
+  renderChart(`chart-${pairId}-${symbol1.toLowerCase()}`, recent1, color1, symbol1, top2_1);
+  renderChart(`chart-${pairId}-${symbol2.toLowerCase()}`, recent2, color2, symbol2, top2_2);
 
   // Calculate and render ratio chart
-  // Align timestamps and calculate SPY/HYG ratio
-  const ratioPoints = [];
-  const spyMap = new Map(spyChart.map(p => [p[0], p[1]]));
-  const hygMap = new Map(hygChart.map(p => [p[0], p[1]]));
+  const ratioPoints = calculateRatio(recent1, recent2);
+  const ratioTop2 = findRecentSwingHighs(ratioPoints, 2, barsEachSide);
+  renderChart(`chart-${pairId}-ratio`, ratioPoints, "#a78bfa", `${symbol1}/${symbol2}`, ratioTop2);
+}
 
-  for (const [time, spyPrice] of spyMap) {
-    const hygPrice = hygMap.get(time);
-    if (hygPrice && hygPrice !== 0) {
-      ratioPoints.push([time, spyPrice / hygPrice]);
+function calculateTrend(swingHighs) {
+  if (swingHighs.length < 2) return "Sideways ↔";
+  if (swingHighs[1].price > swingHighs[0].price) return "Higher Highs ↗";
+  if (swingHighs[1].price < swingHighs[0].price) return "Lower Highs ↘";
+  return "Sideways ↔";
+}
+
+function getDivergenceSignal(trend1, trend2, name1, name2) {
+  const up = "Higher Highs ↗";
+  const down = "Lower Highs ↘";
+
+  if (trend1 === up && trend2 === down) {
+    return `⚠️ BEARISH: ${name1} higher highs, ${name2} lower highs`;
+  } else if (trend1 === down && trend2 === up) {
+    return `⚠️ BULLISH: ${name1} lower highs, ${name2} higher highs`;
+  } else if (trend1 === up && trend2 === up) {
+    return `✅ ALIGNED: Both making higher highs`;
+  } else if (trend1 === down && trend2 === down) {
+    return `🔴 ALIGNED: Both making lower highs`;
+  }
+  return "⚖️ No clear divergence";
+}
+
+function calculateRatio(pts1, pts2) {
+  const ratioPoints = [];
+  const map1 = new Map(pts1.map(p => [p[0], p[1]]));
+  const map2 = new Map(pts2.map(p => [p[0], p[1]]));
+
+  for (const [time, price1] of map1) {
+    const price2 = map2.get(time);
+    if (price2 && price2 !== 0) {
+      ratioPoints.push([time, price1 / price2]);
     }
   }
+  return ratioPoints;
+}
 
-  // Find swing highs on the ratio chart
-  const ratioTop2 = findRecentSwingHighs(ratioPoints, 2, barsEachSide);
+function analyzeAndRender() {
+  // Update last updated timestamp
+  let maxTime = -Infinity;
+  for (const symbol in dataCache) {
+    const pts = dataCache[symbol];
+    if (pts.length) {
+      maxTime = Math.max(maxTime, pts[pts.length - 1][0]);
+    }
+  }
+  document.getElementById("meta").textContent =
+    `Last updated: ${Number.isFinite(maxTime) ? toIso(maxTime) : "unknown"}`;
 
-  renderChart("chartRatio", ratioPoints, "#a78bfa", "SPY/HYG", ratioTop2);
+  // Analyze each pair
+  analyzePair("spy-hyg", "SPY", "HYG", "#4a9eff", "#ff6b6b");
+  analyzePair("qqq-tlt", "QQQ", "TLT", "#10b981", "#f59e0b");
 }
 
 // =============================================================================
@@ -354,15 +370,18 @@ function analyzeAndRender() {
 
 (async function main() {
   try {
-    // Load data once
-    const [spyPts, hygPts] = await Promise.all([
-      loadCsvPoints("./data/spy.csv"),
-      loadCsvPoints("./data/hyg.csv"),
-    ]);
+    // Load all symbols (gracefully handle missing files)
+    const symbols = ["spy", "hyg", "qqq", "tlt"];
 
-    // Store globally
-    spyPtsGlobal = spyPts;
-    hygPtsGlobal = hygPts;
+    for (const sym of symbols) {
+      try {
+        dataCache[sym] = await loadCsvPoints(`./data/${sym}.csv`);
+        console.log(`Loaded ${sym}: ${dataCache[sym].length} points`);
+      } catch (err) {
+        console.warn(`Could not load ${sym}:`, err.message);
+        dataCache[sym] = []; // Empty array for missing data
+      }
+    }
 
     // Set up dropdown listener
     const lookbackSelect = document.getElementById("lookbackSelect");
@@ -375,6 +394,6 @@ function analyzeAndRender() {
     analyzeAndRender();
   } catch (err) {
     document.getElementById("meta").textContent = "Error loading data.";
-    document.getElementById("signal").textContent = String(err);
+    console.error(err);
   }
 })();
