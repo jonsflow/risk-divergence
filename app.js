@@ -3,7 +3,8 @@
 // =============================================================================
 
 let LOOKBACK_DAYS = 20;   // number of days to analyze for divergence (configurable via dropdown)
-const SWING_WINDOW = 5;   // days on each side to identify swing highs/lows (legacy, not currently used)
+let PIVOT_MODE = "highest";  // "highest" = 2 highest by price, "recent" = last 2 chronologically
+let SWING_WINDOW_DAYS = null;  // null = auto-scale, or manual override (2, 3, 5, etc.)
 
 // Global data cache
 let dataCache = {};
@@ -106,6 +107,7 @@ function findRecentSwingHighs(points, maxSwings = 2, barsEachSide = 1) {
  * ACTIVE METHOD - ThinkScript-style pivot detection
  * Find swing highs using ThinkScript-style pivot detection.
  * Based on the RSI_With_Divergence indicator logic.
+ * This version checks all bars including recent ones by using available bars on each side.
  *
  * @param {Array} points - Array of [timestamp, price] tuples
  * @param {Number} leftBars - Bars to the left that must be lower
@@ -115,22 +117,24 @@ function findRecentSwingHighs(points, maxSwings = 2, barsEachSide = 1) {
 function findPivotHighs(points, leftBars = 2, rightBars = 2) {
   const pivotHighs = [];
 
-  // We can only check pivots starting from leftBars and ending at length - rightBars
-  for (let i = leftBars; i < points.length - rightBars; i++) {
+  // Check all bars, using available bars on each side (important for recent data)
+  for (let i = 0; i < points.length; i++) {
     const curr = points[i][1];
     let isPivotHigh = true;
 
-    // Check leftBars before current bar
-    for (let j = 1; j <= leftBars; j++) {
+    // Check bars BEFORE (as many as available, up to leftBars)
+    const checkBefore = Math.min(leftBars, i);
+    for (let j = 1; j <= checkBefore; j++) {
       if (points[i - j][1] >= curr) {
         isPivotHigh = false;
         break;
       }
     }
 
-    // Check rightBars after current bar (only if still a candidate)
+    // Check bars AFTER (as many as available, up to rightBars)
     if (isPivotHigh) {
-      for (let j = 1; j <= rightBars; j++) {
+      const checkAfter = Math.min(rightBars, points.length - 1 - i);
+      for (let j = 1; j <= checkAfter; j++) {
         if (points[i + j][1] >= curr) {
           isPivotHigh = false;
           break;
@@ -147,19 +151,70 @@ function findPivotHighs(points, leftBars = 2, rightBars = 2) {
 }
 
 /**
- * ACTIVE METHOD - Get the last N pivot highs chronologically (ThinkScript style).
+ * ACTIVE METHOD - Get pivot highs using configurable mode.
  * This is the currently active detection method.
  *
  * @param {Array} points - Array of [timestamp, price] tuples
  * @param {Number} maxPivots - How many pivots to return (default 2)
- * @param {Number} barsEachSide - How many bars on each side (default based on lookback)
+ * @param {Number} barsEachSide - How many bars on each side must be lower (default based on lookback)
+ * @param {String} mode - "highest" for 2 highest by price, "recent" for last 2 chronologically
  * @returns {Array} Array of {idx, time, price} objects, sorted chronologically
  */
-function findRecentPivotHighs(points, maxPivots = 2, barsEachSide = 2) {
+function findRecentPivotHighs(points, maxPivots = 2, barsEachSide = 2, mode = "highest") {
   const allPivots = findPivotHighs(points, barsEachSide, barsEachSide);
 
-  // Return the last N pivots chronologically
-  return allPivots.slice(-maxPivots);
+  if (mode === "highest") {
+    // Sort by price (highest first) and take the top N
+    allPivots.sort((a, b) => b.price - a.price);
+    const topN = allPivots.slice(0, maxPivots);
+    // Sort chronologically for display
+    return topN.sort((a, b) => a.time - b.time);
+  } else {
+    // Return the last N pivots chronologically (most recent in time)
+    return allPivots.slice(-maxPivots);
+  }
+}
+
+/**
+ * NEW METHOD - Highest swing high to current price
+ * Find the highest swing high (respecting swing window) and the current (most recent) price.
+ * Returns 2 points: [highest swing high, current price]
+ *
+ * @param {Array} points - Array of [timestamp, price] tuples
+ * @param {Number} barsEachSide - How many bars on each side must be lower (swing window)
+ * @returns {Array} Array of 2 {idx, time, price} objects
+ */
+function findHighestToCurrentLine(points, barsEachSide = 5) {
+  if (points.length === 0) return [];
+
+  // Get the current (most recent) price first (treat as first swing high)
+  const currentIdx = points.length - 1;
+  const currentPrice = points[currentIdx][1];
+
+  // Exclude the current bar AND the full swing window before we start looking
+  // This ensures proper separation between current price and historical swing high
+  const excludeBars = barsEachSide + 1;
+  const historicalPoints = points.slice(0, -excludeBars);
+
+  if (historicalPoints.length === 0) return [];
+
+  const allPivots = findPivotHighs(historicalPoints, barsEachSide, barsEachSide);
+
+  if (allPivots.length === 0) return [];
+
+  // Find the highest pivot high by price
+  let highestPivot = allPivots[0];
+  for (let i = 1; i < allPivots.length; i++) {
+    if (allPivots[i].price > highestPivot.price) {
+      highestPivot = allPivots[i];
+    }
+  }
+
+  // Return both points: highest historical swing high + current price
+  return [
+    highestPivot,
+    { idx: currentIdx, time: points[currentIdx][0], price: currentPrice }
+  ];
 }
 
 // Legacy functions (not currently used, but kept for reference)
@@ -343,11 +398,18 @@ function analyzePair(pairId, symbol1, symbol2, color1, color2) {
   const recent2 = last(pts2, LOOKBACK_DAYS);
 
   // Scale bars required based on lookback period: 20d→2 bars, 50d→5 bars, 100d→10 bars
-  const barsEachSide = Math.max(2, Math.floor(LOOKBACK_DAYS / 10));
+  // Can be manually overridden with SWING_WINDOW_DAYS config
+  const barsEachSide = SWING_WINDOW_DAYS !== null ? SWING_WINDOW_DAYS : Math.max(2, Math.floor(LOOKBACK_DAYS / 10));
 
-  // Use ThinkScript-style pivot detection (last 2 pivots chronologically)
-  const top2_1 = findRecentPivotHighs(recent1, 2, barsEachSide);
-  const top2_2 = findRecentPivotHighs(recent2, 2, barsEachSide);
+  // Use pivot detection with configurable mode
+  let top2_1, top2_2;
+  if (PIVOT_MODE === "highest-to-current") {
+    top2_1 = findHighestToCurrentLine(recent1, barsEachSide);
+    top2_2 = findHighestToCurrentLine(recent2, barsEachSide);
+  } else {
+    top2_1 = findRecentPivotHighs(recent1, 2, barsEachSide, PIVOT_MODE);
+    top2_2 = findRecentPivotHighs(recent2, 2, barsEachSide, PIVOT_MODE);
+  }
 
   // Calculate trends
   const trend1 = calculateTrend(top2_1);
@@ -370,7 +432,9 @@ function analyzePair(pairId, symbol1, symbol2, color1, color2) {
 
   // Calculate and render ratio chart
   const ratioPoints = calculateRatio(recent1, recent2);
-  const ratioTop2 = findRecentSwingHighs(ratioPoints, 2, barsEachSide);
+  const ratioTop2 = PIVOT_MODE === "highest-to-current"
+    ? findHighestToCurrentLine(ratioPoints, barsEachSide)
+    : findRecentPivotHighs(ratioPoints, 2, barsEachSide, PIVOT_MODE);
   renderChart(`chart-${pairId}-ratio`, ratioPoints, "#a78bfa", `${symbol1}/${symbol2}`, ratioTop2);
 }
 
@@ -449,10 +513,23 @@ function analyzeAndRender() {
       }
     }
 
-    // Set up dropdown listener
+    // Set up dropdown listeners
     const lookbackSelect = document.getElementById("lookbackSelect");
     lookbackSelect.addEventListener("change", (e) => {
       LOOKBACK_DAYS = parseInt(e.target.value, 10);
+      analyzeAndRender();
+    });
+
+    const pivotModeSelect = document.getElementById("pivotModeSelect");
+    pivotModeSelect.addEventListener("change", (e) => {
+      PIVOT_MODE = e.target.value;
+      analyzeAndRender();
+    });
+
+    const barsSelect = document.getElementById("barsSelect");
+    barsSelect.addEventListener("change", (e) => {
+      const val = e.target.value;
+      SWING_WINDOW_DAYS = val === "auto" ? null : parseInt(val, 10);
       analyzeAndRender();
     });
 
