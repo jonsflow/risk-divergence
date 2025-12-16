@@ -3,7 +3,7 @@
 // =============================================================================
 
 let LOOKBACK_DAYS = 20;   // number of days to analyze for divergence (configurable via dropdown)
-let PIVOT_MODE = "highest";  // "highest" = 2 highest by price, "recent" = last 2 chronologically
+let PIVOT_MODE = "recent";  // "highest" = 2 highest by price, "recent" = last 2 chronologically
 let SWING_WINDOW_DAYS = null;  // null = auto-scale, or manual override (2, 3, 5, etc.)
 
 // Global data cache
@@ -107,7 +107,7 @@ function findRecentSwingHighs(points, maxSwings = 2, barsEachSide = 1) {
  * ACTIVE METHOD - ThinkScript-style pivot detection
  * Find swing highs using ThinkScript-style pivot detection.
  * Based on the RSI_With_Divergence indicator logic.
- * This version checks all bars including recent ones by using available bars on each side.
+ * Uses fixed 1-bar buffer on edges to prevent absolute edge cases while still catching recent swings.
  *
  * @param {Array} points - Array of [timestamp, price] tuples
  * @param {Number} leftBars - Bars to the left that must be lower
@@ -117,12 +117,13 @@ function findRecentSwingHighs(points, maxSwings = 2, barsEachSide = 1) {
 function findPivotHighs(points, leftBars = 2, rightBars = 2) {
   const pivotHighs = [];
 
-  // Check all bars, using available bars on each side (important for recent data)
-  for (let i = 0; i < points.length; i++) {
+  // Use fixed 1-bar buffer on each side (not swing window)
+  // This prevents absolute edge cases but allows recent swings to be detected
+  for (let i = 1; i < points.length - 1; i++) {
     const curr = points[i][1];
     let isPivotHigh = true;
 
-    // Check bars BEFORE (as many as available, up to leftBars)
+    // Check leftBars BEFORE current bar (as many as available)
     const checkBefore = Math.min(leftBars, i);
     for (let j = 1; j <= checkBefore; j++) {
       if (points[i - j][1] >= curr) {
@@ -131,7 +132,7 @@ function findPivotHighs(points, leftBars = 2, rightBars = 2) {
       }
     }
 
-    // Check bars AFTER (as many as available, up to rightBars)
+    // Check rightBars AFTER current bar (as many as available)
     if (isPivotHigh) {
       const checkAfter = Math.min(rightBars, points.length - 1 - i);
       for (let j = 1; j <= checkAfter; j++) {

@@ -29,8 +29,8 @@
         <div class="muted">Pivot Selection</div>
         <div>
           <select id="pivotModeSelect" style="background:#17181b;color:#e9e9ea;border:1px solid #333;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer">
-            <option value="highest" selected>2 Highest by Price</option>
-            <option value="recent">Last 2 Chronologically</option>
+            <option value="highest">2 Highest by Price</option>
+            <option value="recent" selected>Last 2 Chronologically</option>
             <option value="highest-to-current">HH → Last Close</option>
           </select>
         </div>
@@ -170,6 +170,7 @@
     </div>
   </div>
 
+  <!--
   <div class="card" style="margin-top:18px">
     <h2 style="font-size:16px;margin:0 0 10px">Swing High Detection Logic</h2>
     <div class="muted" style="font-size:13px;line-height:1.7">
@@ -178,11 +179,18 @@
       • <b>Draw trend line:</b> Connect the 2 highest peaks chronologically. If the line slopes up = "Higher Highs ↗", down = "Lower Highs ↘"<br>
       • <b>Detect divergence:</b> When one asset's trend line goes up while another's goes down<br>
       <br>
+  -->
+  <div class="card" style="margin-top:18px">
+    <div class="muted" style="font-size:13px;line-height:1.7">
       <b>Bearish divergence:</b> SPY makes higher highs while HYG makes lower highs (risk-off warning)<br>
       <b>Bullish divergence:</b> SPY makes lower highs while HYG makes higher highs (potential reversal)<br>
       <b>Aligned:</b> Both assets trending in the same direction (confirmation)
     </div>
   </div>
+  <!--
+    </div>
+  </div>
+  -->
 
   <div class="card" style="margin-top:18px">
     <div class="muted" style="text-align:center;font-size:12px">
