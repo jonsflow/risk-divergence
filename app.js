@@ -18,8 +18,29 @@ let SYMBOLS = [];
 // UTILITIES
 // =============================================================================
 
-function toIso(epochSec) {
-  return new Date(epochSec * 1000).toISOString().replace("T", " ").slice(0, 10);
+async function loadLastUpdated() {
+  try {
+    const r = await fetch('./data/last_updated.txt', { cache: "no-store" });
+    if (!r.ok) return "unknown";
+
+    const utcString = await r.text(); // e.g., "2024-12-23 21:00:00 UTC"
+
+    // Parse UTC timestamp and convert to local browser timezone
+    const utcDate = new Date(utcString.replace(' UTC', 'Z').replace(' ', 'T'));
+
+    // Format in user's local timezone
+    return utcDate.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (err) {
+    console.warn("Could not load last_updated.txt:", err.message);
+    return "unknown";
+  }
 }
 
 function last(arr, n) {
@@ -589,17 +610,6 @@ function renderPairColumns() {
 }
 
 function analyzeAndRender() {
-  // Update last updated timestamp
-  let maxTime = -Infinity;
-  for (const symbol in dataCache) {
-    const pts = dataCache[symbol];
-    if (pts.length) {
-      maxTime = Math.max(maxTime, pts[pts.length - 1][0]);
-    }
-  }
-  document.getElementById("meta").textContent =
-    `Last updated: ${Number.isFinite(maxTime) ? toIso(maxTime) : "unknown"}`;
-
   // Analyze each configured pair
   for (const pair of PAIRS) {
     analyzePair(pair.id, pair.symbol1, pair.symbol2, pair.color1, pair.color2);
@@ -634,6 +644,10 @@ function analyzeAndRender() {
 
     // Generate pair columns from config
     renderPairColumns();
+
+    // Load and display last updated timestamp
+    const lastUpdated = await loadLastUpdated();
+    document.getElementById("meta").textContent = `Last updated: ${lastUpdated}`;
 
     // Set up dropdown listeners
     const lookbackSelect = document.getElementById("lookbackSelect");

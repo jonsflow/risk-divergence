@@ -13,6 +13,7 @@ import yfinance as yf
 import sys
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 def load_config():
     """Load configuration from config.json"""
@@ -113,6 +114,13 @@ def main():
             sys.exit(1)
 
     print("✓ All data fetched successfully", file=sys.stderr)
+
+    # Write timestamp file so browser knows when data was last updated
+    timestamp_file = data_dir / 'last_updated.txt'
+    with timestamp_file.open('w') as f:
+        f.write(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'))
+
+    print(f"✓ Updated timestamp: {timestamp_file}", file=sys.stderr)
 
 if __name__ == '__main__':
     main()
