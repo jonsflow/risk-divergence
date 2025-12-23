@@ -51,123 +51,9 @@
     </div>
   </div>
 
-  <!-- Divergence Pairs Columns -->
+  <!-- Divergence Pairs Columns (dynamically generated from app.js PAIRS config) -->
   <div class="pairs-container">
-    <!-- SPY ↔ HYG -->
-    <div class="pair-column">
-      <h2>SPY ↔ HYG</h2>
-      <div class="trends">
-        <div class="trend-item">
-          <span class="muted">SPY Trend</span>
-          <code id="spy-hyg-spy-trend"></code>
-        </div>
-        <div class="trend-item">
-          <span class="muted">HYG Trend</span>
-          <code id="spy-hyg-hyg-trend"></code>
-        </div>
-      </div>
-      <div class="divergence-signal" id="spy-hyg-signal"></div>
-
-      <div class="chart-container">
-        <div class="chart-title">SPY Price</div>
-        <div id="chart-spy-hyg-spy" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">HYG Price</div>
-        <div id="chart-spy-hyg-hyg" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">SPY/HYG Ratio</div>
-        <div id="chart-spy-hyg-ratio" style="width:100%;height:150px"></div>
-      </div>
-    </div>
-
-    <!-- QQQ ↔ TLT -->
-    <div class="pair-column">
-      <h2>QQQ ↔ TLT</h2>
-      <div class="trends">
-        <div class="trend-item">
-          <span class="muted">QQQ Trend</span>
-          <code id="qqq-tlt-qqq-trend"></code>
-        </div>
-        <div class="trend-item">
-          <span class="muted">TLT Trend</span>
-          <code id="qqq-tlt-tlt-trend"></code>
-        </div>
-      </div>
-      <div class="divergence-signal" id="qqq-tlt-signal"></div>
-
-      <div class="chart-container">
-        <div class="chart-title">QQQ Price</div>
-        <div id="chart-qqq-tlt-qqq" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">TLT Price</div>
-        <div id="chart-qqq-tlt-tlt" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">QQQ/TLT Ratio</div>
-        <div id="chart-qqq-tlt-ratio" style="width:100%;height:150px"></div>
-      </div>
-    </div>
-
-    <!-- SPY ↔ GLD -->
-    <div class="pair-column">
-      <h2>SPY ↔ GLD</h2>
-      <div class="trends">
-        <div class="trend-item">
-          <span class="muted">SPY Trend</span>
-          <code id="spy-gld-spy-trend"></code>
-        </div>
-        <div class="trend-item">
-          <span class="muted">GLD Trend</span>
-          <code id="spy-gld-gld-trend"></code>
-        </div>
-      </div>
-      <div class="divergence-signal" id="spy-gld-signal"></div>
-
-      <div class="chart-container">
-        <div class="chart-title">SPY Price</div>
-        <div id="chart-spy-gld-spy" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">GLD Price</div>
-        <div id="chart-spy-gld-gld" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">SPY/GLD Ratio</div>
-        <div id="chart-spy-gld-ratio" style="width:100%;height:150px"></div>
-      </div>
-    </div>
-
-    <!-- SPY ↔ IWM -->
-    <div class="pair-column">
-      <h2>SPY ↔ IWM</h2>
-      <div class="trends">
-        <div class="trend-item">
-          <span class="muted">SPY Trend</span>
-          <code id="spy-iwm-spy-trend"></code>
-        </div>
-        <div class="trend-item">
-          <span class="muted">IWM Trend</span>
-          <code id="spy-iwm-iwm-trend"></code>
-        </div>
-      </div>
-      <div class="divergence-signal" id="spy-iwm-signal"></div>
-
-      <div class="chart-container">
-        <div class="chart-title">SPY Price</div>
-        <div id="chart-spy-iwm-spy" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">IWM Price</div>
-        <div id="chart-spy-iwm-iwm" style="width:100%;height:150px"></div>
-      </div>
-      <div class="chart-container">
-        <div class="chart-title">SPY/IWM Ratio</div>
-        <div id="chart-spy-iwm-ratio" style="width:100%;height:150px"></div>
-      </div>
-    </div>
+    <!-- Pair columns will be generated here by JavaScript -->
   </div>
 
   <!--
@@ -194,10 +80,10 @@
 
   <div class="card" style="margin-top:18px">
     <div class="muted" style="text-align:center;font-size:12px">
-      Data provided by <a href="https://stooq.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Stooq</a>
+      Data provided by <a href="https://finance.yahoo.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Yahoo Finance</a> via <a href="https://github.com/ranaroussi/yfinance" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">yfinance</a>
       · Inspired by <a href="https://tradebrigade.co" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Trade Brigade</a>
       · Hosted on <a href="https://pages.github.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Pages</a>
-      · Daily CSV pulls from Stooq via <a href="https://github.com/features/actions" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Actions</a>
+      · Hourly + daily data fetched via <a href="https://github.com/features/actions" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Actions</a>
       · Vibe-coded with <a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Claude Code</a>
       · <a href="https://github.com/jonsflow/risk-divergence" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Repo</a>
     </div>

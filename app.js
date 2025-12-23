@@ -9,6 +9,16 @@ let SWING_WINDOW_DAYS = null;  // null = auto-scale, or manual override (2, 3, 5
 // Global data cache
 let dataCache = {};
 
+// Divergence pairs configuration
+const PAIRS = [
+  { id: "spy-hyg", symbol1: "SPY", symbol2: "HYG", color1: "#4a9eff", color2: "#ff6b6b" },
+  { id: "qqq-tlt", symbol1: "QQQ", symbol2: "TLT", color1: "#10b981", color2: "#f59e0b" },
+  { id: "spy-gld", symbol1: "SPY", symbol2: "GLD", color1: "#4a9eff", color2: "#fbbf24" },
+  { id: "spy-iwm", symbol1: "SPY", symbol2: "IWM", color1: "#4a9eff", color2: "#8b5cf6" },
+  { id: "btc-spy", symbol1: "BTC", symbol2: "SPY", color1: "#f7931a", color2: "#4a9eff" },
+  { id: "btc-gld", symbol1: "BTC", symbol2: "GLD", color1: "#f7931a", color2: "#fbbf24" }
+];
+
 // =============================================================================
 // UTILITIES
 // =============================================================================
@@ -34,16 +44,54 @@ async function loadCsvPoints(path) {
   if (!r.ok) throw new Error(`Fetch failed ${r.status} for ${path}`);
   const text = await r.text();
   const lines = text.trim().split(/\r?\n/);
-  const header = lines.shift(); // Date,Open,High,Low,Close,Volume
+  const header = lines.shift(); // Date,Open,High,Low,Close,Volume OR Date,Time,Open,High,Low,Close,Volume
   const points = [];
   for (const line of lines) {
-    const [date, , , , close] = line.split(",");
+    const parts = line.split(",");
+    if (parts.length < 5) continue;
+
+    // Check if this is hourly data (has Time column) or daily data
+    const hasTime = parts.length >= 7 && parts[1].includes(":");
+
+    let date, close;
+    if (hasTime) {
+      // Hourly format: Date,Time,Open,High,Low,Close,Volume
+      [date, , , , , close] = parts;
+    } else {
+      // Daily format: Date,Open,High,Low,Close,Volume
+      [date, , , , close] = parts;
+    }
+
     if (!date || !close || date === "Date" || close === "Close") continue;
     const t = Math.floor(new Date(date + "T00:00:00Z").getTime() / 1000);
     const c = Number(close);
     if (!Number.isFinite(t) || !Number.isFinite(c)) continue;
     points.push([t, c]);
   }
+  points.sort((a, b) => a[0] - b[0]);
+  return points;
+}
+
+async function loadHourlyData(path) {
+  const r = await fetch(path, { cache: "no-store" });
+  if (!r.ok) throw new Error(`Fetch failed ${r.status} for ${path}`);
+  const text = await r.text();
+  const lines = text.trim().split(/\r?\n/);
+  const header = lines.shift(); // Date,Time,Open,High,Low,Close,Volume
+  const points = [];
+
+  for (const line of lines) {
+    const [date, time, open, high, low, close, volume] = line.split(",");
+    if (!date || !time || !close || date === "Date") continue;
+
+    const timestamp = Math.floor(new Date(date + "T" + time + "Z").getTime() / 1000);
+    const c = Number(close);
+
+    if (!Number.isFinite(timestamp) || !Number.isFinite(c)) continue;
+
+    points.push([timestamp, c]);
+  }
+
   points.sort((a, b) => a[0] - b[0]);
   return points;
 }
@@ -383,6 +431,7 @@ function renderChart(containerId, points, color = "#4a9eff", label = "", swingHi
  * Analyze a single divergence pair and update the UI
  */
 function analyzePair(pairId, symbol1, symbol2, color1, color2) {
+  // Always use daily data for now (hourly data available for future use)
   const pts1 = dataCache[symbol1.toLowerCase()];
   const pts2 = dataCache[symbol2.toLowerCase()];
 
@@ -476,6 +525,50 @@ function calculateRatio(pts1, pts2) {
   return ratioPoints;
 }
 
+function generatePairHTML(pair) {
+  const { id, symbol1, symbol2 } = pair;
+  const s1 = symbol1.toLowerCase();
+  const s2 = symbol2.toLowerCase();
+
+  return `
+    <!-- ${symbol1} ↔ ${symbol2} -->
+    <div class="pair-column">
+      <h2>${symbol1} ↔ ${symbol2}</h2>
+      <div class="trends">
+        <div class="trend-item">
+          <span class="muted">${symbol1} Trend</span>
+          <code id="${id}-${s1}-trend"></code>
+        </div>
+        <div class="trend-item">
+          <span class="muted">${symbol2} Trend</span>
+          <code id="${id}-${s2}-trend"></code>
+        </div>
+      </div>
+      <div class="divergence-signal" id="${id}-signal"></div>
+
+      <div class="chart-container">
+        <div class="chart-title">${symbol1} Price</div>
+        <div id="chart-${id}-${s1}" style="width:100%;height:150px"></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">${symbol2} Price</div>
+        <div id="chart-${id}-${s2}" style="width:100%;height:150px"></div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">${symbol1}/${symbol2} Ratio</div>
+        <div id="chart-${id}-ratio" style="width:100%;height:150px"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPairColumns() {
+  const container = document.querySelector('.pairs-container');
+  if (!container) return;
+
+  container.innerHTML = PAIRS.map(pair => generatePairHTML(pair)).join('');
+}
+
 function analyzeAndRender() {
   // Update last updated timestamp
   let maxTime = -Infinity;
@@ -488,11 +581,10 @@ function analyzeAndRender() {
   document.getElementById("meta").textContent =
     `Last updated: ${Number.isFinite(maxTime) ? toIso(maxTime) : "unknown"}`;
 
-  // Analyze each pair
-  analyzePair("spy-hyg", "SPY", "HYG", "#4a9eff", "#ff6b6b");
-  analyzePair("qqq-tlt", "QQQ", "TLT", "#10b981", "#f59e0b");
-  analyzePair("spy-gld", "SPY", "GLD", "#4a9eff", "#fbbf24");
-  analyzePair("spy-iwm", "SPY", "IWM", "#4a9eff", "#8b5cf6");
+  // Analyze each configured pair
+  for (const pair of PAIRS) {
+    analyzePair(pair.id, pair.symbol1, pair.symbol2, pair.color1, pair.color2);
+  }
 }
 
 // =============================================================================
@@ -502,17 +594,26 @@ function analyzeAndRender() {
 (async function main() {
   try {
     // Load all symbols (gracefully handle missing files)
-    const symbols = ["spy", "hyg", "qqq", "tlt", "gld", "iwm"];
+    const symbols = ["spy", "hyg", "qqq", "tlt", "gld", "iwm", "btc"];
 
     for (const sym of symbols) {
       try {
+        // Load daily data (for 50/100 day lookbacks)
         dataCache[sym] = await loadCsvPoints(`./data/${sym}.csv`);
-        console.log(`Loaded ${sym}: ${dataCache[sym].length} points`);
+        console.log(`Loaded ${sym} daily: ${dataCache[sym].length} points`);
+
+        // Load hourly data (for 20 day lookback)
+        dataCache[`${sym}_hourly`] = await loadHourlyData(`./data/${sym}_hourly.csv`);
+        console.log(`Loaded ${sym} hourly: ${dataCache[`${sym}_hourly`].length} points`);
       } catch (err) {
         console.warn(`Could not load ${sym}:`, err.message);
         dataCache[sym] = []; // Empty array for missing data
+        dataCache[`${sym}_hourly`] = [];
       }
     }
+
+    // Generate pair columns from config
+    renderPairColumns();
 
     // Set up dropdown listeners
     const lookbackSelect = document.getElementById("lookbackSelect");

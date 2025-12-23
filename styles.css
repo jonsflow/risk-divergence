@@ -47,19 +47,24 @@ code {
 
 /* Divergence pair columns */
 .pairs-container {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 18px;
-  flex-wrap: wrap;
   margin-top: 18px;
 }
 
 .pair-column {
-  flex: 1;
-  min-width: 300px;
   background: #17181b;
   padding: 18px;
   border-radius: 14px;
   box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+/* Limit to max 3 columns per row */
+@media (min-width: 1200px) {
+  .pairs-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .pair-column h2 {

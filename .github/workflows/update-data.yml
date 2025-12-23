@@ -1,9 +1,11 @@
-name: Update market data (Stooq → data/*.csv)
+name: Update market data (Yahoo Finance → data/*.csv)
 
 on:
   schedule:
-    # Once per day at 02:00 UTC on weekdays (after market close + data update)
-    - cron: "0 2 * * 1-5"
+    # Once per day at 21:00 UTC on weekdays (4 PM ET during EST, 5 PM ET during EDT)
+    - cron: "0 21 * * 1-5"
+    # Uncomment for more frequent updates during market hours (every 2 hours):
+    # - cron: "0 14,16,18,20,22 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -19,20 +21,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Stooq daily CSV
-        run: |
-          mkdir -p data
-          curl -sS "https://stooq.com/q/d/l/?s=SPY.US&i=d" -o data/spy.csv
-          curl -sS "https://stooq.com/q/d/l/?s=HYG.US&i=d" -o data/hyg.csv
-          curl -sS "https://stooq.com/q/d/l/?s=QQQ.US&i=d" -o data/qqq.csv
-          curl -sS "https://stooq.com/q/d/l/?s=TLT.US&i=d" -o data/tlt.csv
-          curl -sS "https://stooq.com/q/d/l/?s=GLD.US&i=d" -o data/gld.csv
-          curl -sS "https://stooq.com/q/d/l/?s=IWM.US&i=d" -o data/iwm.csv
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yfinance
+        run: pip install yfinance
+
+      - name: Fetch hourly + daily data from Yahoo Finance
+        run: python3 fetch_data.py
 
       - name: Commit changes (if any)
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add data/*.csv
-          git diff --cached --quiet || git commit -m "Update data (Stooq CSV)"
+          git diff --cached --quiet || git commit -m "Update data (Yahoo Finance)"
           git push
