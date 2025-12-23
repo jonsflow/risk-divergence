@@ -45,6 +45,35 @@ code {
   color: #d5d5ff;
 }
 
+/* Header and Controls */
+.header-section {
+  margin-bottom: 16px;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.control-select {
+  background: #17181b;
+  color: #e9e9ea;
+  border: 1px solid #333;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Mobile: stack controls vertically */
+@media (max-width: 640px) {
+  .controls-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Divergence pair columns */
 .pairs-container {
   display: grid;
