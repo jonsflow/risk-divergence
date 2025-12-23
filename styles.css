@@ -47,13 +47,16 @@ code {
 
 /* Header and Controls */
 .header-section {
-  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.controls-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+.controls-row {
+  display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .control-select {
@@ -64,13 +67,21 @@ code {
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  width: 100%;
 }
 
-/* Mobile: stack controls vertically */
-@media (max-width: 640px) {
-  .controls-grid {
-    grid-template-columns: 1fr;
+/* Mobile: full width controls */
+@media (max-width: 768px) {
+  .header-section {
+    flex-direction: column;
+  }
+
+  .controls-row {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .pill {
+    width: 100%;
   }
 }
 
