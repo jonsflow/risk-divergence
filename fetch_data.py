@@ -3,25 +3,45 @@
 Fetch both hourly and daily data from Yahoo Finance using yfinance.
 Saves data to CSV files in data/ directory for use by the static site.
 
+Reads configuration from config.json to determine which symbols to fetch.
+
 - Hourly data: data/{symbol}_hourly.csv (last 1 month, ~143 bars)
 - Daily data: data/{symbol}.csv (max available history for long-term analysis)
 """
 
 import yfinance as yf
 import sys
+import json
 from pathlib import Path
 
-# Symbols to fetch
-SYMBOLS = ['SPY', 'HYG', 'QQQ', 'TLT', 'GLD', 'IWM', 'BTC']
+def load_config():
+    """Load configuration from config.json"""
+    config_path = Path('config.json')
+    if not config_path.exists():
+        print("ERROR: config.json not found", file=sys.stderr)
+        sys.exit(1)
 
-# Map symbol to Yahoo Finance ticker (for special cases like crypto)
-TICKER_MAP = {
-    'BTC': 'BTC-USD'
-}
+    with config_path.open('r') as f:
+        return json.load(f)
 
-def fetch_hourly(symbol, data_dir):
+def get_symbols_from_config(config):
+    """Extract symbols and ticker mappings from config"""
+    symbols = []
+    ticker_map = {}
+
+    for entry in config['symbols']:
+        symbol = entry['symbol']
+        ticker = entry.get('ticker', symbol)  # Default to symbol if ticker not specified
+
+        symbols.append(symbol)
+        if ticker != symbol:
+            ticker_map[symbol] = ticker
+
+    return symbols, ticker_map
+
+def fetch_hourly(symbol, ticker_map, data_dir):
     """Fetch hourly data (last 1 month)"""
-    ticker_symbol = TICKER_MAP.get(symbol, symbol)
+    ticker_symbol = ticker_map.get(symbol, symbol)
     ticker = yf.Ticker(ticker_symbol)
     df = ticker.history(period='1mo', interval='1h')
 
@@ -45,9 +65,9 @@ def fetch_hourly(symbol, data_dir):
 
     print(f"✓ {symbol} hourly: {len(output_df)} bars → {csv_path}", file=sys.stderr)
 
-def fetch_daily(symbol, data_dir):
+def fetch_daily(symbol, ticker_map, data_dir):
     """Fetch daily data (max available history)"""
-    ticker_symbol = TICKER_MAP.get(symbol, symbol)
+    ticker_symbol = ticker_map.get(symbol, symbol)
     ticker = yf.Ticker(ticker_symbol)
     df = ticker.history(period='max', interval='1d')
 
@@ -71,16 +91,22 @@ def fetch_daily(symbol, data_dir):
     print(f"✓ {symbol} daily: {len(output_df)} bars → {csv_path}", file=sys.stderr)
 
 def main():
+    # Load configuration
+    config = load_config()
+    symbols, ticker_map = get_symbols_from_config(config)
+
+    print(f"Loaded config: {len(symbols)} symbols, {len(config['pairs'])} pairs", file=sys.stderr)
+
     data_dir = Path('data')
     data_dir.mkdir(exist_ok=True)
 
-    for symbol in SYMBOLS:
+    for symbol in symbols:
         try:
             print(f"Fetching {symbol}...", file=sys.stderr)
 
             # Fetch both hourly and daily
-            fetch_hourly(symbol, data_dir)
-            fetch_daily(symbol, data_dir)
+            fetch_hourly(symbol, ticker_map, data_dir)
+            fetch_daily(symbol, ticker_map, data_dir)
 
         except Exception as e:
             print(f"ERROR fetching {symbol}: {e}", file=sys.stderr)

@@ -1,0 +1,105 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate config.json format
+        run: |
+          echo "Validating config.json..."
+          python3 -m json.tool config.json > /dev/null
+          echo "✓ config.json is valid JSON"
+
+      - name: Validate config.json structure
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+
+          with open('config.json') as f:
+              config = json.load(f)
+
+          # Check required top-level keys
+          required_keys = ['symbols', 'pairs', 'defaults']
+          for key in required_keys:
+              if key not in config:
+                  print(f"ERROR: Missing required key '{key}' in config.json")
+                  sys.exit(1)
+
+          # Check symbols structure
+          if not isinstance(config['symbols'], list) or len(config['symbols']) == 0:
+              print("ERROR: 'symbols' must be a non-empty array")
+              sys.exit(1)
+
+          symbols = set()
+          for sym in config['symbols']:
+              if 'symbol' not in sym:
+                  print(f"ERROR: Symbol missing 'symbol' field: {sym}")
+                  sys.exit(1)
+              symbols.add(sym['symbol'])
+
+          # Check pairs structure
+          if not isinstance(config['pairs'], list) or len(config['pairs']) == 0:
+              print("ERROR: 'pairs' must be a non-empty array")
+              sys.exit(1)
+
+          for pair in config['pairs']:
+              required_pair_keys = ['id', 'symbol1', 'symbol2', 'color1', 'color2']
+              for key in required_pair_keys:
+                  if key not in pair:
+                      print(f"ERROR: Pair missing required key '{key}': {pair}")
+                      sys.exit(1)
+
+              # Validate that symbols referenced in pairs exist
+              if pair['symbol1'] not in symbols:
+                  print(f"ERROR: Pair '{pair['id']}' references unknown symbol '{pair['symbol1']}'")
+                  sys.exit(1)
+              if pair['symbol2'] not in symbols:
+                  print(f"ERROR: Pair '{pair['id']}' references unknown symbol '{pair['symbol2']}'")
+                  sys.exit(1)
+
+              # Validate hex color codes
+              for color_key in ['color1', 'color2']:
+                  color = pair[color_key]
+                  if not color.startswith('#') or len(color) not in [4, 7]:
+                      print(f"ERROR: Invalid color code '{color}' in pair '{pair['id']}'")
+                      sys.exit(1)
+
+          print(f"✓ config.json structure valid: {len(symbols)} symbols, {len(config['pairs'])} pairs")
+          EOF
+
+      - name: Check Python syntax
+        run: |
+          echo "Checking Python syntax..."
+          python3 -m py_compile fetch_data.py
+          echo "✓ fetch_data.py syntax is valid"
+
+      - name: Install Python dependencies
+        run: pip install yfinance
+
+      - name: Test fetch_data.py imports
+        run: |
+          python3 << 'EOF'
+          import sys
+          try:
+              # Test that the script can be imported without errors
+              import fetch_data
+              print("✓ fetch_data.py imports successfully")
+          except Exception as e:
+              print(f"ERROR: Failed to import fetch_data.py: {e}")
+              sys.exit(1)
+          EOF
