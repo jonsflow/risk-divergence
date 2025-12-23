@@ -9,15 +9,10 @@ let SWING_WINDOW_DAYS = null;  // null = auto-scale, or manual override (2, 3, 5
 // Global data cache
 let dataCache = {};
 
-// Divergence pairs configuration
-const PAIRS = [
-  { id: "spy-hyg", symbol1: "SPY", symbol2: "HYG", color1: "#4a9eff", color2: "#ff6b6b" },
-  { id: "qqq-tlt", symbol1: "QQQ", symbol2: "TLT", color1: "#10b981", color2: "#f59e0b" },
-  { id: "spy-gld", symbol1: "SPY", symbol2: "GLD", color1: "#4a9eff", color2: "#fbbf24" },
-  { id: "spy-iwm", symbol1: "SPY", symbol2: "IWM", color1: "#4a9eff", color2: "#8b5cf6" },
-  { id: "btc-spy", symbol1: "BTC", symbol2: "SPY", color1: "#f7931a", color2: "#4a9eff" },
-  { id: "btc-gld", symbol1: "BTC", symbol2: "GLD", color1: "#f7931a", color2: "#fbbf24" }
-];
+// Configuration loaded from config.json
+let CONFIG = null;
+let PAIRS = [];
+let SYMBOLS = [];
 
 // =============================================================================
 // UTILITIES
@@ -33,6 +28,30 @@ function last(arr, n) {
 
 function fmt(x) {
   return Number.isFinite(x) ? x.toFixed(2) : "N/A";
+}
+
+// =============================================================================
+// CONFIG LOADING
+// =============================================================================
+
+async function loadConfig() {
+  const r = await fetch('./config.json', { cache: "no-store" });
+  if (!r.ok) throw new Error(`Failed to load config.json: ${r.status}`);
+  const config = await r.json();
+
+  // Apply defaults
+  if (config.defaults) {
+    LOOKBACK_DAYS = config.defaults.lookback_days || LOOKBACK_DAYS;
+    PIVOT_MODE = config.defaults.pivot_mode || PIVOT_MODE;
+    SWING_WINDOW_DAYS = config.defaults.swing_window_days;
+  }
+
+  // Set global config
+  CONFIG = config;
+  PAIRS = config.pairs || [];
+  SYMBOLS = config.symbols.map(s => s.symbol.toLowerCase());
+
+  console.log(`Loaded config: ${SYMBOLS.length} symbols, ${PAIRS.length} pairs`);
 }
 
 // =============================================================================
@@ -593,10 +612,11 @@ function analyzeAndRender() {
 
 (async function main() {
   try {
-    // Load all symbols (gracefully handle missing files)
-    const symbols = ["spy", "hyg", "qqq", "tlt", "gld", "iwm", "btc"];
+    // Load configuration first
+    await loadConfig();
 
-    for (const sym of symbols) {
+    // Load all symbols from config (gracefully handle missing files)
+    for (const sym of SYMBOLS) {
       try {
         // Load daily data (for 50/100 day lookbacks)
         dataCache[sym] = await loadCsvPoints(`./data/${sym}.csv`);
