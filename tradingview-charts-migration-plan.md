@@ -214,22 +214,28 @@ function renderChartTV(containerId, points, color = "#4a9eff", label = "", swing
 }
 ```
 
+## ✅ RESOLVED: Trend Line Solution
+
+TradingView provides a **trend-line plugin example** that does exactly what we need:
+- Source: `plugin-examples/src/plugins/trend-line/trend-line.ts`
+- API: `new TrendLine(chart, series, point1, point2, options)`
+- Usage: `series.attachPrimitive(trendLine)`
+- Supports: custom colors, width, labels, automatic coordinate conversion
+
+**Implementation**: Copy the plugin code into our project (it's a standalone example, not in core library).
+
 ## Open Questions
 
-1. **Trend lines**: What's the best way to draw a dashed line between 2 points?
-   - Option A: Use `createPriceLine()` with custom price formula
-   - Option B: Custom series primitive/plugin
-   - Option C: Keep SVG overlay layer for trend lines only
-
-2. **Chart instance management**: Should we store chart instances for cleanup/updates?
+1. **Chart instance management**: Should we store chart instances for cleanup/updates?
    - Currently we just overwrite innerHTML (destroys old chart)
    - With TradingView, might need to call `chart.remove()` before recreating
 
-3. **Performance**: Will 9+ charts on one page (3 pairs × 3 charts) cause issues?
-   - TradingView claims high performance even with multiple charts
-   - Worth testing with full dataset
+2. **Performance**: Will 9+ charts on one page (3 pairs × 3 charts) cause issues?
+   - ✅ TradingView designed for multiple charts (35kB, canvas-based)
+   - No warnings in docs about chart limits
+   - **Decision**: Proceed - performance should be fine
 
-4. **Mobile**: How do charts behave on small screens?
+3. **Mobile**: How do charts behave on small screens?
    - TradingView has responsive features
    - May need to adjust time scale visibility
 
