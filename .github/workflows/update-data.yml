@@ -36,6 +36,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/*.csv
+          git add data/*.csv data/last_updated.txt
           git diff --cached --quiet || git commit -m "Update data (Yahoo Finance)"
           git push
