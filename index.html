@@ -47,6 +47,20 @@
     </div>
   </div>
 
+  <!-- Overall Risk Score -->
+  <div class="card" style="margin-top:18px">
+    <h2 style="font-size:18px;margin:0 0 10px">Overall Market Risk Score</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">
+      <div>
+        <div style="font-size:24px;font-weight:bold;margin-bottom:8px" id="risk-score">Calculating...</div>
+        <div class="muted" style="font-size:13px">Based on ratio positions relative to 50-day MA</div>
+      </div>
+      <div id="risk-details" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:12px;color:#a7a7ad">
+        <!-- Details will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Divergence Pairs Columns (dynamically generated from app.js PAIRS config) -->
   <div class="pairs-container">
     <!-- Pair columns will be generated here by JavaScript -->

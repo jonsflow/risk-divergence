@@ -34,6 +34,11 @@
       "symbol": "BTC",
       "name": "Bitcoin",
       "ticker": "BTC-USD"
+    },
+    {
+      "symbol": "SMH",
+      "name": "VanEck Semiconductor ETF",
+      "ticker": "SMH"
     }
   ],
   "pairs": [
@@ -84,6 +89,14 @@
       "name": "Crypto vs Gold",
       "color1": "#f7931a",
       "color2": "#fbbf24"
+    },
+    {
+      "id": "spy-smh",
+      "symbol1": "SPY",
+      "symbol2": "SMH",
+      "name": "S&P 500 vs Semiconductors",
+      "color1": "#4a9eff",
+      "color2": "#06b6d4"
     }
   ],
   "defaults": {
