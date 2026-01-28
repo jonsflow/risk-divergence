@@ -373,8 +373,9 @@ function hasLowerLows(swingLows) {
  * @param {String} color - Line color (hex)
  * @param {String} label - Chart label (unused currently)
  * @param {Array} swingHighs - Optional array of swing highs to mark and connect
+ * @param {Array} maPoints - Optional array of moving average points to overlay
  */
-function renderChart(containerId, points, color = "#4a9eff", label = "", swingHighs = null) {
+function renderChart(containerId, points, color = "#4a9eff", label = "", swingHighs = null, maPoints = null) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -407,6 +408,16 @@ function renderChart(containerId, points, color = "#4a9eff", label = "", swingHi
     const y = yScale(p[1]);
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
+
+  // Build MA line if provided
+  let maLine = '';
+  if (maPoints && maPoints.length > 0) {
+    maLine = maPoints.map((p, i) => {
+      const x = xScale(p[0]);
+      const y = yScale(p[1]);
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+  }
 
   // Build trend line or markers from swing highs
   let trendLine = '';
@@ -449,6 +460,9 @@ function renderChart(containerId, points, color = "#4a9eff", label = "", swingHi
 
       <!-- Chart line -->
       <path d="${path}" fill="none" stroke="${color}" stroke-width="2" />
+
+      <!-- Moving average line (if provided) -->
+      ${maLine ? `<path d="${maLine}" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7" />` : ''}
 
       ${trendLine}
 
@@ -520,12 +534,20 @@ function analyzePair(pairId, symbol1, symbol2, color1, color2) {
   renderChart(`chart-${pairId}-${symbol1.toLowerCase()}`, recent1, color1, symbol1, top2_1);
   renderChart(`chart-${pairId}-${symbol2.toLowerCase()}`, recent2, color2, symbol2, top2_2);
 
-  // Calculate and render ratio chart
+  // Calculate and render ratio chart with 50-day MA
   const ratioPoints = calculateRatio(recent1, recent2);
   const ratioTop2 = PIVOT_MODE === "highest-to-current"
     ? findHighestToCurrentLine(ratioPoints, barsEachSide)
     : findRecentPivotHighs(ratioPoints, 2, barsEachSide, PIVOT_MODE);
-  renderChart(`chart-${pairId}-ratio`, ratioPoints, "#a78bfa", `${symbol1}/${symbol2}`, ratioTop2);
+
+  // Calculate 50-day MA for ratio (use full dataset, not just recent)
+  const fullRatio = calculateRatio(pts1, pts2);
+  const ratioMA50 = calculateMA(fullRatio, 50);
+
+  // Filter MA to match the lookback period for display
+  const recentMA = ratioMA50.filter(p => p[0] >= ratioPoints[0][0]);
+
+  renderChart(`chart-${pairId}-ratio`, ratioPoints, "#a78bfa", `${symbol1}/${symbol2}`, ratioTop2, recentMA);
 }
 
 function calculateTrend(swingHighs) {
@@ -563,6 +585,27 @@ function calculateRatio(pts1, pts2) {
     }
   }
   return ratioPoints;
+}
+
+/**
+ * Calculate simple moving average for a given period
+ * @param {Array} points - Array of [timestamp, price] tuples
+ * @param {Number} period - MA period (e.g., 50 for 50-day MA)
+ * @returns {Array} Array of [timestamp, ma_value] tuples
+ */
+function calculateMA(points, period) {
+  const maPoints = [];
+
+  for (let i = period - 1; i < points.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += points[i - j][1];
+    }
+    const ma = sum / period;
+    maPoints.push([points[i][0], ma]);
+  }
+
+  return maPoints;
 }
 
 function generatePairHTML(pair) {
@@ -609,10 +652,81 @@ function renderPairColumns() {
   container.innerHTML = PAIRS.map(pair => generatePairHTML(pair)).join('');
 }
 
+/**
+ * Calculate overall risk score based on ratio positions relative to 50-day MA
+ * Returns an object with score (-7 to +7) and signal description
+ */
+function calculateRiskScore() {
+  let score = 0;
+  const signals = [];
+
+  for (const pair of PAIRS) {
+    const symbol1 = pair.symbol1.toLowerCase();
+    const symbol2 = pair.symbol2.toLowerCase();
+
+    const pts1 = dataCache[symbol1];
+    const pts2 = dataCache[symbol2];
+
+    if (!pts1 || !pts2 || pts1.length === 0 || pts2.length === 0) {
+      continue; // Skip pairs with missing data
+    }
+
+    // Calculate full ratio and MA
+    const fullRatio = calculateRatio(pts1, pts2);
+    const ratioMA50 = calculateMA(fullRatio, 50);
+
+    if (fullRatio.length === 0 || ratioMA50.length === 0) {
+      continue; // Skip if no valid ratio data
+    }
+
+    // Get current ratio value and current MA value
+    const currentRatio = fullRatio[fullRatio.length - 1][1];
+    const currentMA = ratioMA50[ratioMA50.length - 1][1];
+
+    // Determine if ratio is above or below MA
+    if (currentRatio > currentMA) {
+      score += 1;
+      signals.push(`${pair.symbol1}/${pair.symbol2}: Above MA ✓`);
+    } else {
+      score -= 1;
+      signals.push(`${pair.symbol1}/${pair.symbol2}: Below MA ✗`);
+    }
+  }
+
+  // Determine overall signal
+  let signal = "";
+  if (score >= 5) {
+    signal = "🟢 STRONG RISK ON";
+  } else if (score >= 2) {
+    signal = "🟡 RISK ON";
+  } else if (score >= -1) {
+    signal = "⚪ NEUTRAL";
+  } else if (score >= -4) {
+    signal = "🟠 RISK OFF";
+  } else {
+    signal = "🔴 STRONG RISK OFF";
+  }
+
+  return { score, signal, details: signals };
+}
+
 function analyzeAndRender() {
   // Analyze each configured pair
   for (const pair of PAIRS) {
     analyzePair(pair.id, pair.symbol1, pair.symbol2, pair.color1, pair.color2);
+  }
+
+  // Calculate and display overall risk score
+  const riskScore = calculateRiskScore();
+  const scoreElement = document.getElementById("risk-score");
+  const detailsElement = document.getElementById("risk-details");
+
+  if (scoreElement) {
+    scoreElement.textContent = `${riskScore.signal} (${riskScore.score > 0 ? '+' : ''}${riskScore.score})`;
+  }
+
+  if (detailsElement) {
+    detailsElement.innerHTML = riskScore.details.map(d => `<div class="risk-detail-item">${d}</div>`).join('');
   }
 }
 
