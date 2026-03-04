@@ -1,52 +1,62 @@
+const { createChart, LineSeries } = window.LightweightCharts;
+
 async function loadCsvPoints(path) {
   const r = await fetch(path, { cache: "no-store" });
   if (!r.ok) throw new Error(`Fetch failed ${r.status} for ${path}`);
   const text = await r.text();
   const lines = text.trim().split(/\r?\n/);
-  const header = lines.shift(); // Date,Open,High,Low,Close,Volume
+  lines.shift();
+
   const points = [];
   for (const line of lines) {
     const parts = line.split(",");
     if (parts.length < 5) continue;
 
-    let date, close;
-    [date, , , , close] = parts;
+    const date = parts[0];
+    const close = parts[4];
 
-    if (!date || !close || date === "Date" || close === "Close") continue;
+    if (!date || !close || date === "Date") continue;
     const t = Math.floor(new Date(date + "T00:00:00Z").getTime() / 1000);
     const c = Number(close);
     if (!Number.isFinite(t) || !Number.isFinite(c)) continue;
-    points.push([t, c]);
+    points.push({ time: t, value: c });
   }
-  points.sort((a, b) => a[0] - b[0]);
   return points;
 }
 
-function renderChartTV(containerId, points, color = "#4a9eff", label = "", swingHighs = null) {
-  const container = document.getElementById(containerId);
+(async function main() {
+  try {
+    const container = document.getElementById('chart-container');
+    const spyPoints = await loadCsvPoints('./data/spy.csv');
 
-  const chart = LightweightCharts.createChart(container, {
-    layout: {
-      background: { color: '#17181b' },
-      textColor: '#e9e9ea',
-    },
-    grid: {
-      vertLines: { color: '#333' },
-      horzLines: { color: '#333' },
-    },
-    width: container.clientWidth,
-    height: 300,
-  });
+    console.log('Loaded', spyPoints.length, 'points');
 
-  const lineSeries = chart.addLineSeries({
-    color: color,
-    lineWidth: 2,
-  });
+    const chart = createChart(container, {
+      layout: {
+        background: { type: 'solid', color: '#17181b' },
+        textColor: '#e9e9ea',
+      },
+      grid: {
+        vertLines: { color: '#333' },
+        horzLines: { color: '#333' },
+      },
+      width: container.clientWidth,
+      height: 300,
+    });
 
-  const tvData = points.map(([time, value]) => ({ time, value }));
-  lineSeries.setData(tvData);
+    const lineSeries = chart.addSeries(LineSeries, {
+      color: '#4a9eff',
+      lineWidth: 2,
+    });
 
-  if (swingHighs && swingHighs.length > 0) {
+    lineSeries.setData(spyPoints);
+
+    // Add swing high markers
+    const swingHighs = [
+      { time: spyPoints[spyPoints.length - 20].time, price: spyPoints[spyPoints.length - 20].value },
+      { time: spyPoints[spyPoints.length - 10].time, price: spyPoints[spyPoints.length - 10].value }
+    ];
+
     const markers = swingHighs.map(sh => ({
       time: sh.time,
       position: 'aboveBar',
@@ -56,28 +66,20 @@ function renderChartTV(containerId, points, color = "#4a9eff", label = "", swing
     }));
     lineSeries.setMarkers(markers);
 
-    if (swingHighs.length >= 2) {
-        const trendLine = new TrendLine(chart, lineSeries,
-            { time: swingHighs[0].time, price: swingHighs[0].price },
-            { time: swingHighs[1].time, price: swingHighs[1].price },
-            { lineColor: '#ffd700', width: 2, showLabels: false }
-        );
-        lineSeries.attachPrimitive(trendLine);
-    }
-  }
+    // Add trend line
+    const trendLine = new TrendLine(chart, lineSeries,
+      { time: swingHighs[0].time, price: swingHighs[0].price },
+      { time: swingHighs[1].time, price: swingHighs[1].price },
+      { lineColor: '#ffd700', width: 2, showLabels: false }
+    );
+    lineSeries.attachPrimitive(trendLine);
 
-  return chart;
-}
+    chart.timeScale().fitContent();
 
-(async function main() {
-  try {
-    const spyPoints = await loadCsvPoints('./data/spy.csv');
-    const swingHighs = [
-        { time: spyPoints[spyPoints.length - 20][0], price: spyPoints[spyPoints.length - 20][1] },
-        { time: spyPoints[spyPoints.length - 10][0], price: spyPoints[spyPoints.length - 10][1] }
-    ];
-    renderChartTV('chart-container', spyPoints, '#4a9eff', 'SPY', swingHighs);
+    console.log('Chart rendered successfully with markers and trend line');
+
   } catch (err) {
-    console.error(err);
+    console.error('ERROR:', err);
+    document.getElementById('chart-container').innerHTML = '<pre style="color:red;padding:20px">' + err.message + '\n\n' + err.stack + '</pre>';
   }
 })();

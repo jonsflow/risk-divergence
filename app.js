@@ -366,44 +366,73 @@ function hasLowerLows(swingLows) {
 // CHART RENDERING
 // =============================================================================
 
-function renderChartTV(containerId, points, color = "#4a9eff", label = "", swingHighs = null) {
+const { createChart, LineSeries, AreaSeries, CrosshairMode } = window.LightweightCharts;
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function renderChartTV(containerId, points, color = "#4a9eff", label = "", swingHighs = null, ma50Points = null) {
   const container = document.getElementById(containerId);
-  if (!container) return;
+  if (!container) {
+    console.warn(`Container not found: ${containerId}`);
+    return;
+  }
 
-  // Clear existing chart before creating a new one
-  container.innerHTML = '';
+  if (!points || points.length === 0) {
+    console.warn(`No data for ${containerId}`);
+    container.innerHTML = '<div style="padding:10px;color:#666;font-size:12px">No data</div>';
+    return;
+  }
 
-  const chart = LightweightCharts.createChart(container, {
+  try {
+    container.innerHTML = '';
+
+    const chart = createChart(container, {
     layout: {
-      background: { color: '#17181b' },
+      background: { type: 'solid', color: '#17181b' },
       textColor: '#e9e9ea',
     },
     grid: {
       vertLines: { color: '#333' },
       horzLines: { color: '#333' },
     },
+    crosshair: {
+      mode: CrosshairMode.Hidden,
+    },
+    handleScroll: false,
+    handleScale: false,
     width: container.clientWidth,
     height: 150,
   });
 
-  const lineSeries = chart.addLineSeries({
-    color: color,
+  const lineSeries = chart.addSeries(AreaSeries, {
+    lineColor: color,
+    topColor: hexToRgba(color, 0.35),
+    bottomColor: hexToRgba(color, 0),
     lineWidth: 2,
+    lastValueVisible: false,
+    priceLineVisible: false,
   });
 
   const tvData = points.map(([time, value]) => ({ time, value }));
   lineSeries.setData(tvData);
 
-  if (swingHighs && swingHighs.length > 0) {
-    const markers = swingHighs.map(sh => ({
-      time: sh.time,
-      position: 'aboveBar',
-      color: '#ffd700',
-      shape: 'circle',
-      text: '',
-    }));
-    lineSeries.setMarkers(markers);
+  if (ma50Points && ma50Points.length > 0) {
+    const ma50Series = chart.addSeries(LineSeries, {
+      color: '#ffffff',
+      lineWidth: 1,
+      lineStyle: 1, // Dotted
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    ma50Series.setData(ma50Points.map(([time, value]) => ({ time, value })));
+  }
 
+  if (swingHighs && swingHighs.length > 0) {
     if (swingHighs.length >= 2) {
         const trendLine = new TrendLine(chart, lineSeries,
             { time: swingHighs[0].time, price: swingHighs[0].price },
@@ -414,7 +443,12 @@ function renderChartTV(containerId, points, color = "#4a9eff", label = "", swing
     }
   }
 
+  chart.timeScale().fitContent();
   return chart;
+  } catch (err) {
+    console.error(`Error rendering chart ${containerId}:`, err);
+    container.innerHTML = `<div style="padding:10px;color:red;font-size:12px">Error: ${err.message}</div>`;
+  }
 }
 
 // =============================================================================
@@ -470,16 +504,16 @@ function analyzePair(pairId, symbol1, symbol2, color1, color2) {
   const elSignal = document.getElementById(`${pairId}-signal`);
   if (elSignal) elSignal.textContent = signal;
 
-  // Render charts
-  renderChartTV(`chart-${pairId}-${symbol1.toLowerCase()}`, recent1, color1, symbol1, top2_1);
-  renderChartTV(`chart-${pairId}-${symbol2.toLowerCase()}`, recent2, color2, symbol2, top2_2);
+  // Compute MAs from full dataset, then filter to the lookback window for display
+  const startTime1 = recent1[0][0];
+  const startTime2 = recent2[0][0];
+  const ma50_1 = calculateMA(pts1, 50).filter(p => p[0] >= startTime1);
+  const ma50_2 = calculateMA(pts2, 50).filter(p => p[0] >= startTime2);
 
-  // Calculate and render ratio chart with 50-day MA
-  const ratioPoints = calculateRatio(recent1, recent2);
-  const ratioTop2 = PIVOT_MODE === "highest-to-current"
-    ? findHighestToCurrentLine(ratioPoints, barsEachSide)
-    : findRecentPivotHighs(ratioPoints, 2, barsEachSide, PIVOT_MODE);
-  renderChartTV(`chart-${pairId}-ratio`, ratioPoints, "#a78bfa", `${symbol1}/${symbol2}`, ratioTop2);
+  // Render charts
+  renderChartTV(`chart-${pairId}-${symbol1.toLowerCase()}`, recent1, color1, symbol1, top2_1, ma50_1);
+  renderChartTV(`chart-${pairId}-${symbol2.toLowerCase()}`, recent2, color2, symbol2, top2_2, ma50_2);
+
 }
 
 function calculateTrend(swingHighs) {
@@ -569,10 +603,6 @@ function generatePairHTML(pair) {
         <div class="chart-title">${symbol2} Price</div>
         <div id="chart-${id}-${s2}" style="width:100%;height:150px"></div>
       </div>
-      <div class="chart-container">
-        <div class="chart-title">${symbol1}/${symbol2} Ratio</div>
-        <div id="chart-${id}-ratio" style="width:100%;height:150px"></div>
-      </div>
     </div>
   `;
 }
@@ -584,10 +614,6 @@ function renderPairColumns() {
   container.innerHTML = PAIRS.map(pair => generatePairHTML(pair)).join('');
 }
 
-/**
- * Calculate overall risk score based on ratio positions relative to 50-day MA
- * Returns an object with score (-7 to +7) and signal description
- */
 function calculateRiskScore() {
   let score = 0;
   const signals = [];
@@ -600,22 +626,19 @@ function calculateRiskScore() {
     const pts2 = dataCache[symbol2];
 
     if (!pts1 || !pts2 || pts1.length === 0 || pts2.length === 0) {
-      continue; // Skip pairs with missing data
+      continue;
     }
 
-    // Calculate full ratio and MA
     const fullRatio = calculateRatio(pts1, pts2);
     const ratioMA50 = calculateMA(fullRatio, 50);
 
     if (fullRatio.length === 0 || ratioMA50.length === 0) {
-      continue; // Skip if no valid ratio data
+      continue;
     }
 
-    // Get current ratio value and current MA value
     const currentRatio = fullRatio[fullRatio.length - 1][1];
     const currentMA = ratioMA50[ratioMA50.length - 1][1];
 
-    // Determine if ratio is above or below MA
     if (currentRatio > currentMA) {
       score += 1;
       signals.push(`${pair.symbol1}/${pair.symbol2}: Above MA ✓`);
@@ -625,7 +648,6 @@ function calculateRiskScore() {
     }
   }
 
-  // Determine overall signal
   let signal = "";
   if (score >= 5) {
     signal = "🟢 STRONG RISK ON";
@@ -642,13 +664,23 @@ function calculateRiskScore() {
   return { score, signal, details: signals };
 }
 
+function calculateMA(points, period) {
+  const maPoints = [];
+  for (let i = period - 1; i < points.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += points[i - j][1];
+    }
+    maPoints.push([points[i][0], sum / period]);
+  }
+  return maPoints;
+}
+
 function analyzeAndRender() {
-  // Analyze each configured pair
   for (const pair of PAIRS) {
     analyzePair(pair.id, pair.symbol1, pair.symbol2, pair.color1, pair.color2);
   }
 
-  // Calculate and display overall risk score
   const riskScore = calculateRiskScore();
   const scoreElement = document.getElementById("risk-score");
   const detailsElement = document.getElementById("risk-details");
