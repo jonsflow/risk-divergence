@@ -25,18 +25,55 @@ def load_config():
     with config_path.open('r') as f:
         return json.load(f)
 
+def load_macro_config():
+    """Load macro configuration from macro_config.json"""
+    macro_path = Path('macro_config.json')
+    if not macro_path.exists():
+        return None
+
+    with macro_path.open('r') as f:
+        return json.load(f)
+
 def get_symbols_from_config(config):
-    """Extract symbols and ticker mappings from config"""
+    """Extract symbols and ticker mappings from config.json (divergence symbols)"""
     symbols = []
     ticker_map = {}
 
     for entry in config['symbols']:
         symbol = entry['symbol']
-        ticker = entry.get('ticker', symbol)  # Default to symbol if ticker not specified
+        ticker = entry.get('ticker', symbol)
 
         symbols.append(symbol)
         if ticker != symbol:
             ticker_map[symbol] = ticker
+
+    return symbols, ticker_map
+
+def get_symbols_from_macro_config(macro_config):
+    """Extract unique symbols and ticker mappings from macro_config.json categories.
+
+    macro_config.json only stores symbol names, not ticker overrides, so we
+    need a hardcoded map for the symbols that require a non-standard Yahoo ticker.
+    """
+    MACRO_TICKER_MAP = {
+        'BTC': 'BTC-USD',
+        'ETH': 'ETH-USD',
+        'VIX': '^VIX',
+    }
+
+    seen = set()
+    symbols = []
+    ticker_map = {}
+
+    for category in macro_config.get('macro_categories', []):
+        for asset in category.get('assets', []):
+            symbol = asset['symbol']
+            if symbol not in seen:
+                seen.add(symbol)
+                symbols.append(symbol)
+                ticker = MACRO_TICKER_MAP.get(symbol, symbol)
+                if ticker != symbol:
+                    ticker_map[symbol] = ticker
 
     return symbols, ticker_map
 
@@ -92,11 +129,24 @@ def fetch_daily(symbol, ticker_map, data_dir):
     print(f"✓ {symbol} daily: {len(output_df)} bars → {csv_path}", file=sys.stderr)
 
 def main():
-    # Load configuration
+    # Load configuration from both config files
     config = load_config()
-    symbols, ticker_map = get_symbols_from_config(config)
+    divergence_symbols, divergence_tickers = get_symbols_from_config(config)
 
-    print(f"Loaded config: {len(symbols)} symbols, {len(config['pairs'])} pairs", file=sys.stderr)
+    macro_config = load_macro_config()
+    macro_symbols, macro_tickers = get_symbols_from_macro_config(macro_config) if macro_config else ([], {})
+
+    # Merge: deduplicate symbols, merge ticker maps
+    seen = set(divergence_symbols)
+    symbols = list(divergence_symbols)
+    for sym in macro_symbols:
+        if sym not in seen:
+            seen.add(sym)
+            symbols.append(sym)
+
+    ticker_map = {**macro_tickers, **divergence_tickers}  # divergence takes precedence
+
+    print(f"Loaded config: {len(divergence_symbols)} divergence + {len(macro_symbols)} macro symbols = {len(symbols)} total", file=sys.stderr)
 
     data_dir = Path('data')
     data_dir.mkdir(exist_ok=True)

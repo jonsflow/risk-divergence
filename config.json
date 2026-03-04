@@ -1,45 +1,13 @@
 {
   "symbols": [
-    {
-      "symbol": "SPY",
-      "name": "S&P 500 ETF",
-      "ticker": "SPY"
-    },
-    {
-      "symbol": "HYG",
-      "name": "High-Yield Corporate Bond ETF",
-      "ticker": "HYG"
-    },
-    {
-      "symbol": "QQQ",
-      "name": "Nasdaq 100 ETF",
-      "ticker": "QQQ"
-    },
-    {
-      "symbol": "TLT",
-      "name": "20+ Year Treasury Bond ETF",
-      "ticker": "TLT"
-    },
-    {
-      "symbol": "GLD",
-      "name": "Gold ETF",
-      "ticker": "GLD"
-    },
-    {
-      "symbol": "IWM",
-      "name": "Russell 2000 Small Cap ETF",
-      "ticker": "IWM"
-    },
-    {
-      "symbol": "BTC",
-      "name": "Bitcoin",
-      "ticker": "BTC-USD"
-    },
-    {
-      "symbol": "SMH",
-      "name": "VanEck Semiconductor ETF",
-      "ticker": "SMH"
-    }
+    {"symbol": "SPY", "name": "S&P 500 ETF",                   "ticker": "SPY"},
+    {"symbol": "HYG", "name": "High-Yield Corporate Bond ETF", "ticker": "HYG"},
+    {"symbol": "QQQ", "name": "Nasdaq 100 ETF",                "ticker": "QQQ"},
+    {"symbol": "TLT", "name": "20+ Year Treasury Bond ETF",    "ticker": "TLT"},
+    {"symbol": "GLD", "name": "Gold ETF",                      "ticker": "GLD"},
+    {"symbol": "IWM", "name": "Russell 2000 Small Cap ETF",    "ticker": "IWM"},
+    {"symbol": "BTC", "name": "Bitcoin",                       "ticker": "BTC-USD"},
+    {"symbol": "SMH", "name": "VanEck Semiconductor ETF",      "ticker": "SMH"}
   ],
   "pairs": [
     {
