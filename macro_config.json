@@ -1,0 +1,104 @@
+{
+  "macro_categories": [
+    {
+      "id": "us-equities",
+      "name": "US Equities",
+      "color": "#4a9eff",
+      "assets": [
+        {"symbol": "SPY", "name": "S&P 500"},
+        {"symbol": "QQQ", "name": "Nasdaq 100"},
+        {"symbol": "DIA", "name": "Dow Jones"},
+        {"symbol": "IWM", "name": "Russell 2000"},
+        {"symbol": "MDY", "name": "S&P Mid-Cap"},
+        {"symbol": "VTI", "name": "Total Market"}
+      ]
+    },
+    {
+      "id": "us-sectors",
+      "name": "US Sectors",
+      "color": "#06b6d4",
+      "assets": [
+        {"symbol": "XLK", "name": "Technology"},
+        {"symbol": "XLF", "name": "Financials"},
+        {"symbol": "XLE", "name": "Energy"},
+        {"symbol": "XLV", "name": "Healthcare"},
+        {"symbol": "XLI", "name": "Industrials"},
+        {"symbol": "XLP", "name": "Cons. Staples"},
+        {"symbol": "XLY", "name": "Cons. Discretionary"},
+        {"symbol": "XLU", "name": "Utilities"},
+        {"symbol": "XLB", "name": "Materials"},
+        {"symbol": "XLC", "name": "Comm. Services"},
+        {"symbol": "XLRE", "name": "Real Estate"}
+      ]
+    },
+    {
+      "id": "international",
+      "name": "International",
+      "color": "#8b5cf6",
+      "assets": [
+        {"symbol": "EEM", "name": "Emerging Markets"},
+        {"symbol": "EFA", "name": "Developed ex-US"},
+        {"symbol": "FXI", "name": "China"}
+      ]
+    },
+    {
+      "id": "fixed-income",
+      "name": "Fixed Income",
+      "color": "#f59e0b",
+      "assets": [
+        {"symbol": "SHY", "name": "1-3yr Treasury"},
+        {"symbol": "IEF", "name": "7-10yr Treasury"},
+        {"symbol": "TLT", "name": "20yr+ Treasury"},
+        {"symbol": "HYG", "name": "High Yield Corp"},
+        {"symbol": "LQD", "name": "Invest. Grade Corp"},
+        {"symbol": "TIP", "name": "TIPS"},
+        {"symbol": "EMB", "name": "EM Bonds"}
+      ]
+    },
+    {
+      "id": "commodities",
+      "name": "Commodities",
+      "color": "#fbbf24",
+      "assets": [
+        {"symbol": "GLD", "name": "Gold"},
+        {"symbol": "SLV", "name": "Silver"},
+        {"symbol": "USO", "name": "Oil (WTI)"},
+        {"symbol": "UNG", "name": "Natural Gas"},
+        {"symbol": "DBC", "name": "Commodities Basket"},
+        {"symbol": "CPER", "name": "Copper"},
+        {"symbol": "WEAT", "name": "Wheat"}
+      ]
+    },
+    {
+      "id": "currencies",
+      "name": "Currencies",
+      "color": "#10b981",
+      "assets": [
+        {"symbol": "UUP", "name": "US Dollar"},
+        {"symbol": "FXE", "name": "Euro"},
+        {"symbol": "FXY", "name": "Yen"},
+        {"symbol": "FXB", "name": "British Pound"}
+      ]
+    },
+    {
+      "id": "volatility",
+      "name": "Volatility",
+      "color": "#ef4444",
+      "invert": true,
+      "assets": [
+        {"symbol": "VIX",  "name": "CBOE VIX"},
+        {"symbol": "UVXY", "name": "Ultra VIX Short-Term (2x)"},
+        {"symbol": "VIXY", "name": "VIX Short-Term Futures"}
+      ]
+    },
+    {
+      "id": "crypto",
+      "name": "Crypto",
+      "color": "#f7931a",
+      "assets": [
+        {"symbol": "BTC", "name": "Bitcoin"},
+        {"symbol": "ETH", "name": "Ethereum"}
+      ]
+    }
+  ]
+}
