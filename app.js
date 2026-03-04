@@ -109,6 +109,7 @@ async function loadCsvPoints(path) {
     points.push([t, c]);
   }
   points.sort((a, b) => a[0] - b[0]);
+  console.log(`Loaded ${points.length} points from ${path}`);
   return points;
 }
 
@@ -365,116 +366,89 @@ function hasLowerLows(swingLows) {
 // CHART RENDERING
 // =============================================================================
 
-/**
- * Render a simple SVG line chart with optional swing high markers and trend line.
- *
- * @param {String} containerId - DOM element ID to render into
- * @param {Array} points - Array of [timestamp, price] tuples
- * @param {String} color - Line color (hex)
- * @param {String} label - Chart label (unused currently)
- * @param {Array} swingHighs - Optional array of swing highs to mark and connect
- * @param {Array} maPoints - Optional array of moving average points to overlay
- */
-function renderChart(containerId, points, color = "#4a9eff", label = "", swingHighs = null, maPoints = null) {
+const { createChart, LineSeries, AreaSeries, CrosshairMode } = window.LightweightCharts;
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function renderChartTV(containerId, points, color = "#4a9eff", label = "", swingHighs = null, ma50Points = null) {
   const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  const padding = { top: 10, right: 10, bottom: 25, left: 50 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-
-  if (points.length === 0) {
-    container.innerHTML = '<div style="padding:20px;color:#666">No data</div>';
+  if (!container) {
+    console.warn(`Container not found: ${containerId}`);
     return;
   }
 
-  // Extract values
-  const times = points.map(p => p[0]);
-  const values = points.map(p => p[1]);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const minTime = times[0];
-  const maxTime = times[times.length - 1];
-
-  // Scale functions
-  const xScale = (t) => padding.left + ((t - minTime) / (maxTime - minTime)) * chartWidth;
-  const yScale = (v) => padding.top + chartHeight - ((v - minVal) / (maxVal - minVal)) * chartHeight;
-
-  // Build path
-  let path = points.map((p, i) => {
-    const x = xScale(p[0]);
-    const y = yScale(p[1]);
-    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
-
-  // Build MA line if provided
-  let maLine = '';
-  if (maPoints && maPoints.length > 0) {
-    maLine = maPoints.map((p, i) => {
-      const x = xScale(p[0]);
-      const y = yScale(p[1]);
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
+  if (!points || points.length === 0) {
+    console.warn(`No data for ${containerId}`);
+    container.innerHTML = '<div style="padding:10px;color:#666;font-size:12px">No data</div>';
+    return;
   }
 
-  // Build trend line or markers from swing highs
-  let trendLine = '';
-  if (swingHighs && swingHighs.length >= 2) {
-    const recentHighs = swingHighs.slice(-2); // Get last 2 swing highs
-    const x1 = xScale(recentHighs[0].time);
-    const y1 = yScale(recentHighs[0].price);
-    const x2 = xScale(recentHighs[1].time);
-    const y2 = yScale(recentHighs[1].price);
+  try {
+    container.innerHTML = '';
 
-    trendLine = `
-      <!-- Trend line (connecting 2 most recent swing highs) -->
-      <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-            stroke="#ffd700" stroke-width="2" stroke-dasharray="4,4" opacity="0.8"/>
-      <!-- Swing high markers -->
-      <circle cx="${x1}" cy="${y1}" r="4" fill="#ffd700" opacity="0.9"/>
-      <circle cx="${x2}" cy="${y2}" r="4" fill="#ffd700" opacity="0.9"/>
-    `;
-  } else if (swingHighs && swingHighs.length === 1) {
-    // Just show the single highest point
-    const x = xScale(swingHighs[0].time);
-    const y = yScale(swingHighs[0].price);
-    trendLine = `
-      <!-- Single highest point -->
-      <circle cx="${x}" cy="${y}" r="5" fill="#ffd700" opacity="0.9"/>
-    `;
+    const chart = createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#17181b' },
+      textColor: '#e9e9ea',
+    },
+    grid: {
+      vertLines: { color: '#333' },
+      horzLines: { color: '#333' },
+    },
+    crosshair: {
+      mode: CrosshairMode.Hidden,
+    },
+    handleScroll: false,
+    handleScale: false,
+    width: container.clientWidth,
+    height: 150,
+  });
+
+  const lineSeries = chart.addSeries(AreaSeries, {
+    lineColor: color,
+    topColor: hexToRgba(color, 0.35),
+    bottomColor: hexToRgba(color, 0),
+    lineWidth: 2,
+    lastValueVisible: false,
+    priceLineVisible: false,
+  });
+
+  const tvData = points.map(([time, value]) => ({ time, value }));
+  lineSeries.setData(tvData);
+
+  if (ma50Points && ma50Points.length > 0) {
+    const ma50Series = chart.addSeries(LineSeries, {
+      color: '#ffffff',
+      lineWidth: 1,
+      lineStyle: 4, // Sparse Dotted
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    ma50Series.setData(ma50Points.map(([time, value]) => ({ time, value })));
   }
 
-  // Format dates for axis
-  const startDate = new Date(minTime * 1000).toISOString().slice(0, 10);
-  const endDate = new Date(maxTime * 1000).toISOString().slice(0, 10);
+  if (swingHighs && swingHighs.length > 0) {
+    if (swingHighs.length >= 2) {
+        const trendLine = new TrendLine(chart, lineSeries,
+            { time: swingHighs[0].time, price: swingHighs[0].price },
+            { time: swingHighs[1].time, price: swingHighs[1].price },
+            { lineColor: '#ffd700', width: 2, showLabels: false }
+        );
+        lineSeries.attachPrimitive(trendLine);
+    }
+  }
 
-  container.innerHTML = `
-    <svg width="${width}" height="${height}" style="display:block">
-      <!-- Grid lines -->
-      <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"
-            stroke="#333" stroke-width="1"/>
-      <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"
-            stroke="#333" stroke-width="1"/>
-
-      <!-- Chart line -->
-      <path d="${path}" fill="none" stroke="${color}" stroke-width="2" />
-
-      <!-- Moving average line (if provided) -->
-      ${maLine ? `<path d="${maLine}" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7" />` : ''}
-
-      ${trendLine}
-
-      <!-- Y-axis labels -->
-      <text x="${padding.left - 5}" y="${padding.top + 5}" text-anchor="end" fill="#a7a7ad" font-size="11">${maxVal.toFixed(2)}</text>
-      <text x="${padding.left - 5}" y="${height - padding.bottom + 5}" text-anchor="end" fill="#a7a7ad" font-size="11">${minVal.toFixed(2)}</text>
-
-      <!-- X-axis labels -->
-      <text x="${padding.left}" y="${height - padding.bottom + 18}" text-anchor="start" fill="#a7a7ad" font-size="11">${startDate}</text>
-      <text x="${width - padding.right}" y="${height - padding.bottom + 18}" text-anchor="end" fill="#a7a7ad" font-size="11">${endDate}</text>
-    </svg>
-  `;
+  chart.timeScale().fitContent();
+  return chart;
+  } catch (err) {
+    console.error(`Error rendering chart ${containerId}:`, err);
+    container.innerHTML = `<div style="padding:10px;color:red;font-size:12px">Error: ${err.message}</div>`;
+  }
 }
 
 // =============================================================================
@@ -530,24 +504,16 @@ function analyzePair(pairId, symbol1, symbol2, color1, color2) {
   const elSignal = document.getElementById(`${pairId}-signal`);
   if (elSignal) elSignal.textContent = signal;
 
+  // Compute MAs from full dataset, then filter to the lookback window for display
+  const startTime1 = recent1[0][0];
+  const startTime2 = recent2[0][0];
+  const ma50_1 = calculateMA(pts1, 50).filter(p => p[0] >= startTime1);
+  const ma50_2 = calculateMA(pts2, 50).filter(p => p[0] >= startTime2);
+
   // Render charts
-  renderChart(`chart-${pairId}-${symbol1.toLowerCase()}`, recent1, color1, symbol1, top2_1);
-  renderChart(`chart-${pairId}-${symbol2.toLowerCase()}`, recent2, color2, symbol2, top2_2);
+  renderChartTV(`chart-${pairId}-${symbol1.toLowerCase()}`, recent1, color1, symbol1, top2_1, ma50_1);
+  renderChartTV(`chart-${pairId}-${symbol2.toLowerCase()}`, recent2, color2, symbol2, top2_2, ma50_2);
 
-  // Calculate and render ratio chart with 50-day MA
-  const ratioPoints = calculateRatio(recent1, recent2);
-  const ratioTop2 = PIVOT_MODE === "highest-to-current"
-    ? findHighestToCurrentLine(ratioPoints, barsEachSide)
-    : findRecentPivotHighs(ratioPoints, 2, barsEachSide, PIVOT_MODE);
-
-  // Calculate 50-day MA for ratio (use full dataset, not just recent)
-  const fullRatio = calculateRatio(pts1, pts2);
-  const ratioMA50 = calculateMA(fullRatio, 50);
-
-  // Filter MA to match the lookback period for display
-  const recentMA = ratioMA50.filter(p => p[0] >= ratioPoints[0][0]);
-
-  renderChart(`chart-${pairId}-ratio`, ratioPoints, "#a78bfa", `${symbol1}/${symbol2}`, ratioTop2, recentMA);
 }
 
 function calculateTrend(swingHighs) {
@@ -637,10 +603,6 @@ function generatePairHTML(pair) {
         <div class="chart-title">${symbol2} Price</div>
         <div id="chart-${id}-${s2}" style="width:100%;height:150px"></div>
       </div>
-      <div class="chart-container">
-        <div class="chart-title">${symbol1}/${symbol2} Ratio</div>
-        <div id="chart-${id}-ratio" style="width:100%;height:150px"></div>
-      </div>
     </div>
   `;
 }
@@ -652,56 +614,39 @@ function renderPairColumns() {
   container.innerHTML = PAIRS.map(pair => generatePairHTML(pair)).join('');
 }
 
-/**
- * Calculate overall risk score based on ratio positions relative to 50-day MA
- * Returns an object with score (-7 to +7) and signal description
- */
 function calculateRiskScore() {
   let score = 0;
   const signals = [];
 
-  for (const pair of PAIRS) {
-    const symbol1 = pair.symbol1.toLowerCase();
-    const symbol2 = pair.symbol2.toLowerCase();
+  for (const sym of SYMBOLS) {
+    const pts = dataCache[sym];
+    if (!pts || pts.length === 0) continue;
 
-    const pts1 = dataCache[symbol1];
-    const pts2 = dataCache[symbol2];
+    const ma50 = calculateMA(pts, 50);
+    if (ma50.length === 0) continue;
 
-    if (!pts1 || !pts2 || pts1.length === 0 || pts2.length === 0) {
-      continue; // Skip pairs with missing data
-    }
+    const currentPrice = pts[pts.length - 1][1];
+    const currentMA = ma50[ma50.length - 1][1];
+    const label = sym.toUpperCase();
 
-    // Calculate full ratio and MA
-    const fullRatio = calculateRatio(pts1, pts2);
-    const ratioMA50 = calculateMA(fullRatio, 50);
-
-    if (fullRatio.length === 0 || ratioMA50.length === 0) {
-      continue; // Skip if no valid ratio data
-    }
-
-    // Get current ratio value and current MA value
-    const currentRatio = fullRatio[fullRatio.length - 1][1];
-    const currentMA = ratioMA50[ratioMA50.length - 1][1];
-
-    // Determine if ratio is above or below MA
-    if (currentRatio > currentMA) {
+    if (currentPrice > currentMA) {
       score += 1;
-      signals.push(`${pair.symbol1}/${pair.symbol2}: Above MA ✓`);
+      signals.push(`${label}: Above 50 MA ✓`);
     } else {
       score -= 1;
-      signals.push(`${pair.symbol1}/${pair.symbol2}: Below MA ✗`);
+      signals.push(`${label}: Below 50 MA ✗`);
     }
   }
 
-  // Determine overall signal
+  const total = SYMBOLS.length;
   let signal = "";
-  if (score >= 5) {
+  if (score >= Math.ceil(total * 0.7)) {
     signal = "🟢 STRONG RISK ON";
-  } else if (score >= 2) {
+  } else if (score >= Math.ceil(total * 0.3)) {
     signal = "🟡 RISK ON";
-  } else if (score >= -1) {
+  } else if (score >= -Math.ceil(total * 0.3)) {
     signal = "⚪ NEUTRAL";
-  } else if (score >= -4) {
+  } else if (score >= -Math.ceil(total * 0.7)) {
     signal = "🟠 RISK OFF";
   } else {
     signal = "🔴 STRONG RISK OFF";
@@ -710,13 +655,23 @@ function calculateRiskScore() {
   return { score, signal, details: signals };
 }
 
+function calculateMA(points, period) {
+  const maPoints = [];
+  for (let i = period - 1; i < points.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += points[i - j][1];
+    }
+    maPoints.push([points[i][0], sum / period]);
+  }
+  return maPoints;
+}
+
 function analyzeAndRender() {
-  // Analyze each configured pair
   for (const pair of PAIRS) {
     analyzePair(pair.id, pair.symbol1, pair.symbol2, pair.color1, pair.color2);
   }
 
-  // Calculate and display overall risk score
   const riskScore = calculateRiskScore();
   const scoreElement = document.getElementById("risk-score");
   const detailsElement = document.getElementById("risk-details");
@@ -726,7 +681,10 @@ function analyzeAndRender() {
   }
 
   if (detailsElement) {
-    detailsElement.innerHTML = riskScore.details.map(d => `<div class="risk-detail-item">${d}</div>`).join('');
+    detailsElement.innerHTML = riskScore.details.map(d => {
+      const above = d.includes('✓');
+      return `<span style="padding:3px 8px;border-radius:4px;background:${above ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)'};color:${above ? '#4ade80' : '#f87171'}">${d}</span>`;
+    }).join('');
   }
 }
 
