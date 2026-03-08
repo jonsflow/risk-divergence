@@ -104,29 +104,56 @@ def fetch_hourly(symbol, ticker_map, data_dir):
     print(f"✓ {symbol} hourly: {len(output_df)} bars → {csv_path}", file=sys.stderr)
 
 def fetch_daily(symbol, ticker_map, data_dir):
-    """Fetch daily data (max available history)"""
+    """Fetch daily data — incremental if existing CSV present, else full max history.
+
+    Existing rows are never re-parsed through pandas to avoid float reformatting,
+    which would cause spurious git diffs across thousands of rows.
+    """
+    csv_path = data_dir / f'{symbol.lower()}.csv'
+
+    # Read last date directly from the file (no pandas) to preserve original formatting
+    last_date = None
+    existing_lines = None
+    if csv_path.exists():
+        try:
+            with open(csv_path, 'r') as f:
+                existing_lines = f.readlines()
+            if len(existing_lines) > 1:
+                last_date = existing_lines[-1].split(',')[0].strip()
+        except Exception:
+            pass
+
     ticker_symbol = ticker_map.get(symbol, symbol)
     ticker = yf.Ticker(ticker_symbol)
-    df = ticker.history(period='max', interval='1d')
+
+    if last_date:
+        # Fetch from last known date inclusive (catches any price corrections too)
+        df = ticker.history(start=last_date, interval='1d')
+    else:
+        df = ticker.history(period='max', interval='1d')
 
     if df.empty:
         print(f"WARNING: No daily data returned for {symbol}", file=sys.stderr)
         return
 
-    # Reset index to get Date as a column
     df = df.reset_index()
-
-    # Format date as YYYY-MM-DD
     df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
+    new_df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
 
-    # Format: Date,Open,High,Low,Close,Volume (no Time column for daily)
-    output_df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-
-    # Save to {symbol}.csv (same as before)
-    csv_path = data_dir / f'{symbol.lower()}.csv'
-    output_df.to_csv(csv_path, index=False)
-
-    print(f"✓ {symbol} daily: {len(output_df)} bars → {csv_path}", file=sys.stderr)
+    if last_date and existing_lines:
+        # Keep existing lines that predate new fetch; drop overlap so corrections apply
+        first_new_date = new_df['Date'].iloc[0]
+        header = existing_lines[0]
+        kept = [l for l in existing_lines[1:] if l.split(',')[0] < first_new_date]
+        new_csv = new_df.to_csv(index=False, header=False)
+        with open(csv_path, 'w') as f:
+            f.write(header)
+            f.writelines(kept)
+            f.write(new_csv)
+        print(f"✓ {symbol} daily: +{len(new_df)} new bars (total {len(kept) + len(new_df)}) → {csv_path}", file=sys.stderr)
+    else:
+        new_df.to_csv(csv_path, index=False)
+        print(f"✓ {symbol} daily: {len(new_df)} bars → {csv_path}", file=sys.stderr)
 
 def main():
     # Load configuration from both config files
