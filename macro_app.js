@@ -196,6 +196,13 @@ function renderAssetCard(assetData, color, maPeriod) {
 // REGIME CARD RENDERING
 // =============================================================================
 
+const REGIME_DESCRIPTIONS = {
+  '\uD83D\uDFE2 GOLDILOCKS':            'Growth above trend, inflation contained. Risk assets outperform — equities, credit, and small caps lead. Bonds lag.',
+  '\uD83D\uDFE1 INFLATIONARY BOOM':     'Strong growth with rising prices. Commodities and real assets outperform. Nominal bonds struggle; equities mixed on pricing power.',
+  '\uD83D\uDD35 RECESSION / DEFLATION': 'Growth below trend, inflation falling. Treasuries and defensives outperform. Credit spreads widen, equities under pressure.',
+  '\uD83D\uDD34 STAGFLATION':           'Weak growth, high inflation — the worst macro backdrop. Gold and commodities hold value; equities and bonds both struggle.',
+};
+
 const FLAG_META = {
   carry_risk:       { label: '⚡ CARRY RISK',   color: '#f59e0b' },
   inflation_regime: { label: '📈 INFLATION',     color: '#ef4444' },
@@ -277,9 +284,12 @@ function renderRegimeCard(rc) {
     `<div class="rw-item"><span class="rw-sym">${a.sym}</span><span class="rw-w">${a.w}</span></div>`
   ).join('');
 
+  const description = REGIME_DESCRIPTIONS[rc.quadrant] || '';
+
   el.innerHTML = `
     <div class="regime-card">
       <div class="regime-quadrant">Regime: ${rc.quadrant}</div>
+      ${description ? `<div class="regime-description">${description}</div>` : ''}
       <div class="regime-axes">
         <div class="regime-axis">
           <span class="regime-axis-label">Growth</span>
