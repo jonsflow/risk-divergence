@@ -163,6 +163,90 @@ def get_divergence_signal(trend1: str, trend2: str, name1: str, name2: str) -> s
     return "\u2696\ufe0f No clear divergence"
 
 # =============================================================================
+# CATEGORY THEME DERIVATION
+# =============================================================================
+
+def derive_category_theme(cat_id: str, signals: dict) -> str:
+    """Derive a human-readable theme label for a category based on above-MA signals."""
+    above = {s for s, v in signals.items() if v is True}
+
+    if cat_id == 'us-sectors':
+        defensive = {'XLV', 'XLP', 'XLU', 'XLRE'}
+        cyclical  = {'XLK', 'XLF', 'XLY', 'XLC'}
+        value     = {'XLE', 'XLI', 'XLB'}
+        d = len(above & defensive); c = len(above & cyclical); v = len(above & value)
+        if d + c + v == 0:              return 'Broad weakness'
+        if d > c and d > v:             return 'Defensive rotation'
+        if v > c and v > d:             return 'Value / reflation'
+        if c > d and ('XLK' in above or 'XLC' in above): return 'Growth / tech led'
+        if c > d:                       return 'Cyclical rotation'
+        return 'Mixed'
+
+    elif cat_id == 'fixed-income':
+        if {'TLT','IEF'} <= above and not (above & {'HYG','LQD'}): return 'Flight to quality'
+        if {'HYG','LQD'} <= above and 'TLT' not in above:          return 'Risk-on credit'
+        if 'TIP' in above and 'TLT' not in above:                  return 'Inflation breakout'
+        if not above:                                               return 'Broad weakness'
+        return 'Mixed signals'
+
+    elif cat_id == 'commodities':
+        precious = {'GLD','SLV','CPER'}; energy = {'USO','UNG'}
+        p = len(above & precious); e = len(above & energy)
+        total = len([v for v in signals.values() if v is not None])
+        pct   = len(above) / total if total else 0
+        if pct >= 0.70:        return 'Broad inflation bid'
+        if p >= 2 and e == 0:  return 'Precious metals bid'
+        if e >= 1 and p == 0:  return 'Energy led'
+        if not above:          return 'Broad weakness'
+        return 'Mixed'
+
+    elif cat_id == 'currencies':
+        uup = signals.get('UUP')
+        if uup is True:  return 'Dollar strength'
+        if uup is False: return 'Dollar weakness'
+        return 'Mixed'
+
+    elif cat_id == 'volatility':
+        if above & {'VIX','UVXY','VIXY'}: return 'Elevated vol'
+        return 'Vol suppressed'
+
+    elif cat_id == 'crypto':
+        btc, eth = signals.get('BTC'), signals.get('ETH')
+        if btc and eth:         return 'Risk-on'
+        if not btc and not eth: return 'Risk-off'
+        return 'Diverging'
+
+    elif cat_id == 'international':
+        em = len(above & {'EEM','FXI'})
+        dm = 1 if signals.get('EFA') else 0
+        total = len([v for v in signals.values() if v is not None])
+        if len(above) == total and total > 0: return 'Global strength'
+        if not above:          return 'Global weakness'
+        if em > dm:            return 'EM outperforming'
+        if dm > em:            return 'DM outperforming'
+        return 'Mixed'
+
+    elif cat_id == 'us-equities':
+        total = len([v for v in signals.values() if v is not None])
+        pct   = len(above) / total if total else 0
+        spy, iwm = signals.get('SPY'), signals.get('IWM')
+        if pct >= 0.70:                     return 'Broad strength'
+        if pct >= 0.50 and spy and not iwm: return 'Large-cap led'
+        if pct >= 0.50 and iwm and not spy: return 'Small-cap led'
+        if pct >= 0.50:                     return 'Moderate strength'
+        if pct <= 0.30:                     return 'Broad weakness'
+        return 'Mixed'
+
+    else:
+        total = len([v for v in signals.values() if v is not None])
+        pct   = len(above) / total if total else 0
+        if pct >= 0.70: return 'Strong'
+        if pct >= 0.50: return 'Moderate'
+        if pct <= 0.30: return 'Weak'
+        return 'Mixed'
+
+
+# =============================================================================
 # REGIME CARD
 # =============================================================================
 
@@ -235,6 +319,7 @@ def generate_macro_cache(categories: list, data: dict, lookback: int, ma_period:
         regime_above = 0
         regime_total = 0
         cat_assets = []
+        cat_signals = {}  # symbol -> above_ma for theme derivation
 
         for asset in cat['assets']:
             sym  = asset['symbol'].lower()
@@ -262,6 +347,7 @@ def generate_macro_cache(categories: list, data: dict, lookback: int, ma_period:
             above_ma      = (current_price > current_ma) if current_ma is not None else None
 
             signal_map[asset['symbol']] = above_ma
+            cat_signals[asset['symbol']] = above_ma
 
             # Breadth bar (no invert)
             if above_ma is not None:
@@ -295,9 +381,14 @@ def generate_macro_cache(categories: list, data: dict, lookback: int, ma_period:
         total_above += regime_above
         total_count += regime_total
 
+        leaders  = [s for s, v in cat_signals.items() if v is True]
+        laggards = [s for s, v in cat_signals.items() if v is False]
         cache_categories.append({
             'id':       cat['id'],
             'breadth':  {'above': cat_above, 'total': cat_total},
+            'theme':    derive_category_theme(cat['id'], cat_signals),
+            'leaders':  leaders,
+            'laggards': laggards,
             'assets':   cat_assets,
         })
 
