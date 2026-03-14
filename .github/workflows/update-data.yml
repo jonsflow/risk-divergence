@@ -4,8 +4,6 @@ on:
   schedule:
     # Once per day at 21:00 UTC on weekdays (4 PM ET during EST, 5 PM ET during EDT)
     - cron: "0 21 * * 1-5"
-    # Uncomment for more frequent updates during market hours (every 2 hours):
-    # - cron: "0 14,16,18,20,22 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -38,12 +36,8 @@ jobs:
       - name: Fetch hourly + daily data from Yahoo Finance
         run: python3 fetch_data.py
 
-      - name: Generate analysis cache
-        run: python3 generate_cache.py
-
-      - name: Commit and push changes (if any)
+      - name: Commit and push CSV data (if any)
         run: |
           git add data/*.csv data/last_updated.txt
-          git add data/cache/
           git diff --cached --quiet || git commit -m "Update data (Yahoo Finance)"
           git push
