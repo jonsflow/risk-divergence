@@ -53,13 +53,28 @@
   </div>
 
   <!-- Overall Risk Score -->
-  <div class="card" style="margin-top:18px">
-    <h2 style="font-size:18px;margin:0 0 10px">Overall Market Risk Score</h2>
-    <div style="font-size:24px;font-weight:bold;margin-bottom:10px" id="risk-score">Calculating...</div>
-    <div class="muted" style="font-size:12px;margin-bottom:10px">Each symbol: +1 if price above 50 MA, -1 if below</div>
-    <div id="risk-details" style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:#a7a7ad">
-      <!-- Details will be populated by JavaScript -->
+  <div style="display:flex;gap:18px;margin-top:18px;align-items:stretch">
+
+    <div class="card" style="flex:1">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Overall Market Risk Score</div>
+      <div style="font-size:24px;font-weight:bold;margin-bottom:4px" id="combined-risk-score">Calculating...</div>
+      <div class="muted" style="font-size:12px">Combined MA + trend structure score</div>
     </div>
+
+    <div class="card" style="flex:1">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">MA Score</div>
+      <div style="font-size:24px;font-weight:bold;margin-bottom:6px" id="risk-score">Calculating...</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px">Each symbol: +1 if price above 50 MA, -1 if below</div>
+      <div id="risk-details" style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:#a7a7ad"></div>
+    </div>
+
+    <div class="card" style="flex:1">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Trend Structure Score</div>
+      <div style="font-size:24px;font-weight:bold;margin-bottom:6px" id="trend-risk-score">Calculating...</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px">Each pair scored −2 to +2 based on observed trend structure</div>
+      <div id="trend-risk-details" style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:#a7a7ad"></div>
+    </div>
+
   </div>
 
   <!-- Divergence Pairs Columns (dynamically generated from app.js PAIRS config) -->
@@ -92,13 +107,15 @@
   <div class="card" style="margin-top:18px">
     <div class="muted" style="text-align:center;font-size:12px">
       Data provided by <a href="https://finance.yahoo.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Yahoo Finance</a> via <a href="https://github.com/ranaroussi/yfinance" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">yfinance</a>
+      · Charts powered by <a href="https://www.tradingview.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">TradingView</a> Lightweight Charts
       · Inspired by <a href="https://tradebrigade.co" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Trade Brigade</a>
       · Hosted on <a href="https://pages.github.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Pages</a>
       · Hourly + daily data fetched via <a href="https://github.com/features/actions" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Actions</a>
       · Vibe-coded with <a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Claude Code</a>
       · <a href="https://github.com/jonsflow/risk-divergence" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Repo</a>
       <br><br>
-      <img src="https://hits.sh/jonsflow.github.io/risk-divergence.svg" alt="Page visits" style="margin-top:6px"/>
+      <img id="hits-badge" src="https://hits.sh/jonsflow.github.io/risk-divergence.svg" alt="Page visits" style="margin-top:6px"/>
+      <script>if(location.hostname==='localhost'||location.hostname==='127.0.0.1')document.getElementById('hits-badge').style.display='none';</script>
     </div>
   </div>
 
