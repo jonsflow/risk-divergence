@@ -218,17 +218,6 @@ function renderChartTV(containerId, points, color = "#4a9eff", label = "", swing
     ma50Series.setData(ma50Points.map(([time, value]) => ({ time, value })));
   }
 
-  if (swingHighs && swingHighs.length > 0) {
-    if (swingHighs.length >= 2) {
-        const trendLine = new TrendLine(chart, lineSeries,
-            { time: swingHighs[0].time, price: swingHighs[0].price },
-            { time: swingHighs[1].time, price: swingHighs[1].price },
-            { lineColor: '#ffd700', width: 2, showLabels: false }
-        );
-        lineSeries.attachPrimitive(trendLine);
-    }
-  }
-
   chart.timeScale().fitContent();
   return chart;
   } catch (err) {
