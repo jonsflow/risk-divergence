@@ -238,6 +238,42 @@ function renderChartTV(containerId, points, color = "#4a9eff", label = "", swing
 }
 
 // =============================================================================
+// TREND SCORING
+// =============================================================================
+
+function classifyTrend(trendStr) {
+  if (trendStr.includes('↗')) return 'up';
+  if (trendStr.includes('↘')) return 'down';
+  return 'sideways';
+}
+
+function trendArrow(trendStr) {
+  if (trendStr.includes('↗')) return '↗';
+  if (trendStr.includes('↘')) return '↘';
+  return '→';
+}
+
+function scorePair(t1, t2) {
+  const a = classifyTrend(t1), b = classifyTrend(t2);
+  if (a === 'up'       && b === 'up')       return  2;
+  if (a === 'up'       && b === 'sideways') return  1;
+  if (a === 'sideways' && b === 'up')       return  1;
+  if (a === 'down'     && b === 'sideways') return -1;
+  if (a === 'sideways' && b === 'down')     return -1;
+  if (a === 'down'     && b === 'down')     return -2;
+  return 0;
+}
+
+function trendSignalLabel(score, maxTotal) {
+  const r = score / maxTotal;
+  if (r >= 0.67)  return { label: '🟢 STRONG RISK ON',  color: '#10b981' };
+  if (r >= 0.25)  return { label: '🟡 RISK ON',         color: '#84cc16' };
+  if (r >= -0.17) return { label: '⚪ NEUTRAL',          color: '#a7a7ad' };
+  if (r >= -0.58) return { label: '🟠 RISK OFF',         color: '#f59e0b' };
+  return           { label: '🔴 STRONG RISK OFF',        color: '#ef4444' };
+}
+
+// =============================================================================
 // PAIR GENERATION
 // =============================================================================
 
@@ -286,7 +322,7 @@ function renderPairColumns() {
 // =============================================================================
 
 function applyDivergenceCache(cache) {
-  // Risk score
+  // MA-based risk score (from cache)
   const riskScore      = cache.risk_score;
   const scoreElement   = document.getElementById("risk-score");
   const detailsElement = document.getElementById("risk-details");
@@ -299,6 +335,44 @@ function applyDivergenceCache(cache) {
       const above = d.includes('\u2713');
       return `<span style="padding:3px 8px;border-radius:4px;background:${above ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)'};color:${above ? '#4ade80' : '#f87171'}">${d}</span>`;
     }).join('');
+  }
+
+  // Trend-structure risk score (computed from pair trend labels)
+  const trendScoreElement   = document.getElementById("trend-risk-score");
+  const trendDetailsElement = document.getElementById("trend-risk-details");
+
+  let total = 0;
+  const pairChips = [];
+  for (const pairData of cache.pairs) {
+    const s = scorePair(pairData.trend1, pairData.trend2);
+    total += s;
+    const sign = s > 0 ? '+' : '';
+    const chipColor = s > 0 ? 'rgba(16,185,129,0.15)' : s < 0 ? 'rgba(239,68,68,0.15)' : 'rgba(167,167,173,0.15)';
+    const textColor = s > 0 ? '#10b981' : s < 0 ? '#ef4444' : '#a7a7ad';
+    const pair = PAIRS.find(p => p.id === pairData.id);
+    const pairLabel = pair ? `${pair.symbol1}↔${pair.symbol2}` : pairData.id;
+    pairChips.push(`<span style="padding:3px 8px;border-radius:4px;background:${chipColor};color:${textColor}">${pairLabel}: ${trendArrow(pairData.trend1)} vs ${trendArrow(pairData.trend2)} (${sign}${s})</span>`);
+  }
+  const maxTotal = cache.pairs.length * 2;
+  const { label, color } = trendSignalLabel(total, maxTotal);
+
+  if (trendScoreElement) {
+    trendScoreElement.textContent = `${label} (${total > 0 ? '+' : ''}${total})`;
+    trendScoreElement.style.color = color;
+  }
+  if (trendDetailsElement) {
+    trendDetailsElement.innerHTML = pairChips.join('');
+  }
+
+  // Combined score: MA + trend structure, normalized against combined max
+  const combinedElement = document.getElementById("combined-risk-score");
+  if (combinedElement) {
+    const maMax = riskScore.details.length;
+    const combinedScore = riskScore.score + total;
+    const combinedMax = maMax + maxTotal;
+    const combined = trendSignalLabel(combinedScore, combinedMax);
+    combinedElement.textContent = `${combined.label} (${combinedScore > 0 ? '+' : ''}${combinedScore})`;
+    combinedElement.style.color = combined.color;
   }
 
   // Per-pair: signals + chart render with cached pivots
