@@ -19,6 +19,7 @@ For GitHub Actions, store it as a repository secret named FRED_API_KEY.
 import os
 import json
 import pathlib
+import datetime
 from dotenv import load_dotenv
 from fredapi import Fred
 
@@ -64,6 +65,27 @@ def get_all_series(config):
     return config.get('series', [])
 
 
+def write_bundle(all_series):
+    """Bundle all fetched series into a single JSON file for efficient client loading.
+
+    Format: { "fetched_at": "ISO string", "series": { "ID": [[date, value], ...] } }
+    Compact array pairs keep file size ~30% smaller than named-key objects.
+    """
+    bundle = {
+        "fetched_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "series": {},
+    }
+    for series_id, s in all_series.items():
+        bundle["series"][series_id] = [
+            [str(d.date()), float(v)] for d, v in s.items()
+        ]
+    out_path = OUTPUT_DIR / "fred_cache.json"
+    with open(out_path, "w") as f:
+        json.dump(bundle, f, separators=(",", ":"))
+    size_kb = out_path.stat().st_size / 1024
+    print(f"  Bundle → {out_path}  ({len(all_series)} series, {size_kb:.0f} KB)")
+
+
 def main():
     api_key = os.environ.get("FRED_API_KEY")
     if not api_key:
@@ -72,15 +94,19 @@ def main():
     fred   = Fred(api_key=api_key)
     config = load_config()
 
+    all_series = {}
     for entry in get_all_series(config):
         series_id = entry["id"]
         name      = entry["name"]
         print(f"Fetching {series_id} ({name})...")
         try:
-            series = fetch_series(fred, series_id)
-            save_csv(series, series_id)
+            s = fetch_series(fred, series_id)
+            save_csv(s, series_id)
+            all_series[series_id] = s
         except Exception as e:
             print(f"  WARNING: failed to fetch {series_id}: {e}")
+
+    write_bundle(all_series)
 
 
 if __name__ == "__main__":

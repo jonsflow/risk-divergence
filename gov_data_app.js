@@ -68,6 +68,25 @@ async function loadAllCsvs(categories) {
   return results;
 }
 
+// Load all FRED series from the pre-built bundle (1 request vs 20).
+// Falls back to individual CSVs for local dev before the cache exists.
+async function loadFredData() {
+  try {
+    const r = await fetch('./data/fred/fred_cache.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const bundle = await r.json();
+    const results = {};
+    for (const [id, rows] of Object.entries(bundle.series)) {
+      results[id] = rows.map(([date, value]) => ({ date, value }));
+    }
+    console.log(`Loaded fred_cache.json (${Object.keys(results).length} series, fetched ${bundle.fetched_at})`);
+    return results;
+  } catch (e) {
+    console.warn(`fred_cache.json unavailable (${e.message}), falling back to individual CSVs`);
+    return loadAllCsvs(GOV_CATEGORIES);
+  }
+}
+
 // =============================================================================
 // STATS COMPUTATION
 // =============================================================================
@@ -1263,7 +1282,7 @@ async function main() {
   try {
     await loadConfig();
     metaEl.textContent = 'Loading series…';
-    allData = await loadAllCsvs(GOV_CATEGORIES);
+    allData = await loadFredData();
 
     const loadedCount = Object.values(allData).filter(v => v && v.length > 0).length;
     const totalCount  = Object.keys(allData).length;
