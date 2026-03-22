@@ -91,62 +91,7 @@ Change figures are labeled inline: `+0.04 1d chg`, `+2,000 1wk chg`, `+0.1 1mo c
 
 ## Pivot Detection Algorithm
 
-Used in `generate_cache.py` for divergence signals. Implemented in Python, results cached to JSON.
-
-### Step 1 — Detect Pivot Points
-
-For each bar `i` in a price series (skip first and last):
-```
-Pivot HIGH: price[i] > price[i-1] AND price[i] > price[i+1]
-Pivot LOW:  price[i] < price[i-1] AND price[i] < price[i+1]
-```
-
-Window `N` controls sensitivity (auto-scaled from lookback or manually set via dropdown).
-
-### Step 2 — Label Each Pivot (HH / HL / LH / LL)
-
-Seed: `lastHigh = lastLow = points[0].value` (window's opening price)
-
-Walk pivots chronologically:
-```
-Pivot HIGH:
-  if price > lastHigh → label = HH, advance lastHigh
-  else               → label = LH  (do NOT advance lastHigh)
-
-Pivot LOW:
-  if price < lastLow  → label = LL, advance lastLow
-  else               → label = HL  (do NOT advance lastLow)
-```
-
-**Key rule**: `lastHigh` only advances on a HH. A LH does not reset the baseline — the next high still competes against the true running high.
-
-### Step 3 — Read Final Structure
-
-From the last pivot high and last pivot low in the window:
-
-| Last High | Last Low | Structure |
-|-----------|----------|-----------|
-| HH | HL | `HH + HL ↗` (uptrend) |
-| HH | LL | `HH only ↗` |
-| LH | LL | `LL + LH ↘` (downtrend) |
-| LH | HL | `LH + HL ↔` (sideways) |
-
-### Marker Colors
-
-| Label | Color |
-|-------|-------|
-| HH | Teal `#14b8a6` |
-| HL | Green `#4ade80` |
-| LH | Orange `#f97316` |
-| LL | Red `#ff4d4d` |
-
-### Divergence Detection
-
-Compare pivot structure across two assets over the same lookback window:
-- **Bearish divergence**: Asset 1 → HH, Asset 2 → LH (Asset 1 up, Asset 2 failing)
-- **Bullish divergence**: Asset 1 → LL, Asset 2 → HL (Asset 1 down, Asset 2 holding)
-- **Aligned up**: Both HH
-- **Aligned down**: Both LL
+See **[docs/pivot-logic.md](pivot-logic.md)** for the full algorithm reference, including pseudocode, labeling rules, pivot selection modes, swing window guidance, and planned future extensions.
 
 ---
 
