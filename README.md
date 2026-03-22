@@ -1,41 +1,21 @@
 # Risk Divergence Dashboard
 
-**Static GitHub Pages site** that displays divergence signals across multiple asset pairs (equities, bonds, gold, crypto).
+**Static GitHub Pages site** with four dashboards for monitoring macro risk signals.
 
-Uses **GitHub Actions** to fetch data from **Yahoo Finance** (via `yfinance`), run Python analysis, and precompute results into JSON cache files. The browser fetches a single cache file and renders it — no client-side analysis required.
+Uses **GitHub Actions** to fetch data from **Yahoo Finance** (via `yfinance`) and **FRED** (via `fredapi`), run Python analysis, and serve everything as static files. The browser fetches precomputed cache JSON or raw CSVs and renders — no backend required.
 
 🔗 **[Live Demo](https://jonsflow.github.io/risk-divergence/)**
 
 ---
 
-## Features
+## Pages
 
-✅ **6 Divergence Pairs**:
-- SPY ↔ HYG (Equities vs High-Yield Bonds)
-- QQQ ↔ TLT (Tech vs Treasuries)
-- SPY ↔ GLD (Equities vs Gold)
-- SPY ↔ IWM (Large Cap vs Small Cap)
-- BTC ↔ SPY (Crypto vs Equities)
-- BTC ↔ GLD (Crypto vs Gold)
-
-✅ **Configurable Analysis**:
-- Lookback periods: 20, 50, or 100 days
-- Pivot detection modes: Last 2 chronologically, 2 highest by price, Highest high → Last close
-- Auto-scaling or manual swing window
-
-✅ **Hourly + Daily Data**:
-- Hourly data: Last 1 month (~143 bars for stocks, ~700 for Bitcoin)
-- Daily data: Max available history (thousands of bars)
-- Currently uses daily data; hourly available for future enhancements
-
-✅ **Python as Single Source of Truth**:
-- All pivot detection, divergence, and regime logic lives in `generate_cache.py`
-- JS is a pure renderer — reads precomputed cache JSON, no analysis code
-- Cache missing = clear error message, no silent wrong results
-
-✅ **Fully Static**:
-- No backend required
-- Deployed on GitHub Pages
+| Page | Description | Data |
+|------|-------------|------|
+| **Divergence** | 6 asset-pair divergence signals with pivot charts | Yahoo Finance → Python cache |
+| **Macro Model** | 40+ assets across 8 categories, MA signals + breadth score | Yahoo Finance → Python cache |
+| **Credit Spread** | HY OAS spread signal, percentile rank, MA overlay | FRED (client-side) |
+| **Gov Data** | 20 FRED economic series across 4 categories with sparklines | FRED (client-side) |
 
 ---
 
@@ -44,91 +24,96 @@ Uses **GitHub Actions** to fetch data from **Yahoo Finance** (via `yfinance`), r
 ### 1. Enable GitHub Pages
 Settings → Pages → Deploy from a branch → `main` → `/ (root)`
 
-### 2. Trigger Data Fetch
-Actions → "Update market data (Yahoo Finance → data/*.csv)" → Run workflow
+### 2. Add Secrets
+- `FRED_API_KEY` — get a free key at [fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html)
 
-### 3. Visit Your Site
-After the workflow commits the CSV files, visit your GitHub Pages URL.
+### 3. Trigger Data Fetch
+Actions → "Update market data" → Run workflow
 
 ---
 
 ## Local Development
 
-### Fetch Data and Generate Cache Locally
 ```bash
-# Install dependencies (one-time)
-pip install yfinance
+# Install dependencies
+pip install yfinance fredapi python-dotenv
 
-# Fetch both hourly and daily data
+# Set FRED API key
+echo "FRED_API_KEY=your_key_here" > .env
+
+# Fetch Yahoo Finance data + generate cache
 python3 fetch_data.py
-
-# Generate precomputed cache files (required — JS has no analysis fallback)
 python3 generate_cache.py
-```
 
-### Run Local Server
-```bash
-# Python
+# Fetch FRED data
+python fetch_fred.py
+
+# Run local server (required — file:// causes CORS errors)
 python3 -m http.server 8000
-
-# Node.js
-npx http-server -p 8000
+# → http://localhost:8000
 ```
-
-Then visit `http://localhost:8000`
 
 ---
 
-## Adding New Pairs
+## Features
 
-1. Edit `config.json` to add the pair and symbol
-2. Add the symbol to `fetch_data.py`
-3. Re-run data fetch and cache generation:
+**Divergence** — 6 pairs, configurable lookback (20/50/100d), 3 pivot modes, auto/manual swing window
 
-```bash
-python3 fetch_data.py
-python3 generate_cache.py
-```
+**Macro Model** — breadth score, per-category tabs, configurable MA period
 
-The UI is generated dynamically from config — no HTML changes needed.
+**Credit Spread** — percentile rank over rolling window, momentum signal, combined Risk On/Off score
+
+**Gov Data** — frequency-aware change labels (1d/1wk/1mo), YoY % for inflation series, chart history selector
 
 ---
 
 ## Files
 
 ```
-├── index.html              # HTML structure (minimal, pairs generated dynamically)
+├── index.html              # Divergence dashboard
 ├── macro.html              # Macro model dashboard
-├── styles.css              # All styling
-├── app.js                  # Divergence page renderer (reads cache, no analysis)
-├── macro_app.js            # Macro page renderer (reads cache, no analysis)
-├── fetch_data.py           # Fetches hourly + daily CSVs from Yahoo Finance
-├── generate_cache.py       # Runs all analysis, writes data/cache/*.json
-├── config.json             # Divergence pairs and symbol configuration
-├── macro_config.json       # Macro model categories and assets
-├── data/                   # Generated CSV files (hourly + daily)
-│   └── cache/              # Precomputed JSON cache files (45+ files)
-└── .github/workflows/      # Scheduled data fetching + cache generation
+├── credit.html             # Credit spread signal
+├── gov_data.html           # Government data (FRED) dashboard
+├── styles.css              # Shared CSS
+├── app.js                  # Divergence renderer
+├── macro_app.js            # Macro renderer
+├── credit_app.js           # Credit spread renderer
+├── gov_data_app.js         # Gov data renderer
+├── config.json             # Divergence pairs + symbol config
+├── macro_config.json       # Macro categories + assets
+├── fred_config.json        # FRED series config (categories, display, freq)
+├── fetch_data.py           # Fetches Yahoo Finance CSVs
+├── generate_cache.py       # Runs analysis → data/cache/*.json
+├── fetch_fred.py           # Fetches FRED series → data/fred/*.csv
+├── data/
+│   ├── *.csv               # Yahoo Finance daily + hourly CSVs
+│   ├── cache/              # Precomputed divergence + macro JSON
+│   └── fred/               # FRED series CSVs (20 series)
+└── docs/                   # Technical documentation
 ```
 
 ---
 
 ## Tech Stack
 
-- **Data**: Yahoo Finance (via `yfinance` Python library)
+- **Data**: Yahoo Finance (`yfinance`), FRED (`fredapi`)
 - **Hosting**: GitHub Pages
-- **Automation**: GitHub Actions (runs daily at 4 PM ET market close)
-- **Frontend**: Vanilla JavaScript (no frameworks)
-- **Charts**: TradingView Lightweight Charts (divergence page), custom SVG sparklines (macro page)
+- **Automation**: GitHub Actions (daily at 4 PM ET)
+- **Frontend**: Vanilla JavaScript, no frameworks
+- **Charts**: TradingView Lightweight Charts (divergence/credit), custom SVG sparklines (macro/gov data)
+
+---
+
+## Documentation
+
+- [`docs/components.md`](./docs/components.md) — page architecture, pivot algorithm, renderer functions
+- [`docs/fred-data.md`](./docs/fred-data.md) — FRED series reference, release schedules, setup
+- [`docs/pair-candidates.md`](./docs/pair-candidates.md) — future divergence pair ideas
+- [`CLAUDE.md`](./CLAUDE.md) — Claude Code instructions and development guide
 
 ---
 
 ## Credits
 
-- Data provided by [Yahoo Finance](https://finance.yahoo.com) via [yfinance](https://github.com/ranaroussi/yfinance)
-- Inspired by [Trade Brigade](https://tradebrigade.co)
+- Data: [Yahoo Finance](https://finance.yahoo.com) via [yfinance](https://github.com/ranaroussi/yfinance) · [FRED](https://fred.stlouisfed.org) via [fredapi](https://github.com/mortada/fredapi)
 - Built with [Claude Code](https://claude.ai/code)
-
----
-
-For detailed technical documentation, see [`CLAUDE.md`](./CLAUDE.md).
