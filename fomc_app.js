@@ -112,7 +112,7 @@ function renderSummaryCards(data, decisions) {
   if (decisions.length > 0) {
     const last = decisions[0];
     const sign = last.bps > 0 ? '+' : '';
-    const color = last.type === 'Hike' ? '#f87171' : '#34d399';
+    const color = last.type === 'Hike' ? ChartUtils.colors.hike : ChartUtils.colors.cut;
     const el = document.getElementById('card-last-move');
     el.textContent = `${sign}${last.bps}bps`;
     el.style.color = color;
@@ -137,13 +137,6 @@ function renderSummaryCards(data, decisions) {
 // CHART HELPERS
 // =============================================================================
 
-function hexToRgba(hex, alpha) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 function destroyChart(id) {
   if (fomcCharts.has(id)) {
     try { fomcCharts.get(id).remove(); } catch (_) {}
@@ -151,44 +144,37 @@ function destroyChart(id) {
   }
 }
 
-function createBaseChart(containerId, height) {
+function createBaseChart(containerId, height, overrides) {
   destroyChart(containerId);
   const el = document.getElementById(containerId);
   if (!el) return null;
 
-  const chart = LightweightCharts.createChart(el, {
-    width: el.clientWidth,
-    height,
-    layout: { background: { color: 'transparent' }, textColor: '#a7a7ad' },
-    grid: { vertLines: { color: '#1e1e2e' }, horzLines: { color: '#1e1e2e' } },
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: '#2a2a3e' },
-    timeScale: { borderColor: '#2a2a3e', timeVisible: true },
-    handleScroll: false,
-    handleScale: false,
-  });
-
-  new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth })).observe(el);
+  const chart = ChartUtils.createFomcChart(el, height, overrides);
   fomcCharts.set(containerId, chart);
   return chart;
 }
 
-function toChartPoints(points) {
-  return points.map(p => ({ time: p.date, value: p.value }));
+function addChartLegend(containerId, entries) {
+  // entries: [{ label, color, value }]
+  // Creates a flex row of [Label][Value] badges pinned to top-left of chart.
+  const el = document.getElementById(containerId);
+  el.style.position = 'relative';
+  const row = document.createElement('div');
+  row.style.cssText = 'position:absolute;top:8px;left:8px;z-index:10;pointer-events:none;display:flex;gap:6px;flex-wrap:wrap;';
+  for (const { label, color, value } of entries) {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+    item.innerHTML = `
+      <span style="background:${color};color:#000;font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;">${label}</span>
+      <span style="background:rgba(23,24,27,0.85);border:1px solid #2a2a3e;color:${color};font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;">${value}</span>
+    `;
+    row.appendChild(item);
+  }
+  el.appendChild(row);
 }
 
-// fitContent then extend right edge by a fraction of the visible range.
-// rightOffset in bars is useless at full zoom-out (12 bars = ~1px over 70 years).
-// This approach scales correctly at any zoom level.
-function fitWithPadding(chart, rightPct = 0.06) {
-  chart.timeScale().fitContent();
-  const vr = chart.timeScale().getVisibleLogicalRange();
-  if (vr) {
-    chart.timeScale().setVisibleLogicalRange({
-      from: vr.from,
-      to: vr.to + (vr.to - vr.from) * rightPct,
-    });
-  }
+function toChartPoints(points) {
+  return points.map(p => ({ time: p.date, value: p.value }));
 }
 
 function filterAfter(points, isoDate) {
@@ -221,16 +207,24 @@ function renderRateHistoryChart(data, decisions) {
   if (!chart) return;
 
   const area = chart.addSeries(LightweightCharts.AreaSeries, {
-    lineColor: '#f97316',
-    topColor: hexToRgba('#f97316', 0.3),
-    bottomColor: hexToRgba('#f97316', 0.02),
+    lineColor: ChartUtils.colors.rate,
+    topColor: ChartUtils.hexToRgba(ChartUtils.colors.rate, 0.3),
+    bottomColor: ChartUtils.hexToRgba(ChartUtils.colors.rate, 0.02),
     lineWidth: 2,
-    title: 'Fed Funds Rate',
+    title: '',
     priceLineVisible: true,
     priceLineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: true,
+    autoscaleInfoProvider: () => ({
+      priceRange: { minValue: 0, maxValue: 7 },
+    }),
   });
   area.setData(combined);
+
+  const lastVal = combined[combined.length - 1].value;
+  addChartLegend('chart-rate-history', [
+    { label: 'EFFR', color: ChartUtils.colors.rate, value: `${lastVal.toFixed(2)}%` },
+  ]);
 
   // Decision markers — arrows above/below for hikes/cuts
   // decisions are newest-first; markers need ascending order
@@ -241,14 +235,25 @@ function renderRateHistoryChart(data, decisions) {
     .map(d => ({
       time: d.date,
       position: d.type === 'Hike' ? 'aboveBar' : 'belowBar',
-      color: d.type === 'Hike' ? '#f87171' : '#34d399',
+      color: d.type === 'Hike' ? ChartUtils.colors.hike : ChartUtils.colors.cut,
       shape: d.type === 'Hike' ? 'arrowUp' : 'arrowDown',
       text: `${d.bps > 0 ? '+' : ''}${d.bps}`,
       size: 0.8,
     }));
   LightweightCharts.createSeriesMarkers(area, markers);
 
-  fitWithPadding(chart);
+  // Enable horizontal drag/touch so user can pan left to see pre-2006 history
+  chart.applyOptions({
+    handleScroll: { pressedMouseMove: true, horzTouchDrag: true, mouseWheel: false },
+  });
+
+  // rightOffset = persistent label buffer (survives scroll); setVisibleRange ends
+  // at the last real bar — rightOffset is the sole source of right padding.
+  const viewFrom = nYearsAgo(15);
+  const lastTime = combined[combined.length - 1].time;
+  const visibleBars = combined.filter(p => p.time >= viewFrom).length;
+  chart.timeScale().applyOptions({ rightOffset: Math.ceil(visibleBars * 0.05) });
+  chart.timeScale().setVisibleRange({ from: viewFrom, to: lastTime });
 }
 
 // =============================================================================
@@ -261,8 +266,6 @@ function renderRateCorridorChart(data) {
   const dfedtaru = filterAfter(data['DFEDTARU'], cutoff);
   const dfedtarl = filterAfter(data['DFEDTARL'], cutoff);
   const effr     = filterAfter(data['EFFR'],     cutoff);
-  const iorb     = filterAfter(data['IORB'],     cutoff);
-  const sofr     = filterAfter(data['SOFR'],     cutoff);
 
   if (dfedtaru.length < 2) return;
 
@@ -271,10 +274,10 @@ function renderRateCorridorChart(data) {
 
   // Upper target — orange dashed
   const upper = chart.addSeries(LightweightCharts.LineSeries, {
-    color: '#f97316',
+    color: ChartUtils.colors.rate,
     lineWidth: 1,
     lineStyle: LightweightCharts.LineStyle.Dashed,
-    title: 'Target Upper',
+    title: '',
     priceLineVisible: false,
     lastValueVisible: true,
   });
@@ -282,80 +285,35 @@ function renderRateCorridorChart(data) {
 
   // Lower target — orange dashed (lighter)
   const lower = chart.addSeries(LightweightCharts.LineSeries, {
-    color: hexToRgba('#f97316', 0.6),
+    color: ChartUtils.hexToRgba(ChartUtils.colors.rate, 0.6),
     lineWidth: 1,
     lineStyle: LightweightCharts.LineStyle.Dashed,
-    title: 'Target Lower',
+    title: '',
     priceLineVisible: false,
     lastValueVisible: true,
   });
   lower.setData(toChartPoints(dfedtarl));
 
-  // EFFR — solid white (the actual overnight rate)
+  // EFFR — solid white (the actual overnight rate vs the corridor)
   if (effr.length >= 2) {
     const effrS = chart.addSeries(LightweightCharts.LineSeries, {
-      color: '#e2e2e8',
+      color: ChartUtils.colors.effr,
       lineWidth: 2,
-      title: 'EFFR',
-      priceLineVisible: false,
+      title: '',
+      priceLineVisible: true,
+      priceLineStyle: LightweightCharts.LineStyle.Dashed,
       lastValueVisible: true,
     });
     effrS.setData(toChartPoints(effr));
   }
 
-  // SOFR — blue (benchmark replacement for LIBOR)
-  if (sofr.length >= 2) {
-    const sofrS = chart.addSeries(LightweightCharts.LineSeries, {
-      color: '#7aa2f7',
-      lineWidth: 1,
-      title: 'SOFR',
-      priceLineVisible: false,
-      lastValueVisible: true,
-    });
-    sofrS.setData(toChartPoints(sofr));
-  }
+  addChartLegend('chart-rate-corridor', [
+    { label: 'Target Upper', color: ChartUtils.colors.rate,                           value: `${dfedtaru[dfedtaru.length-1].value.toFixed(2)}%` },
+    { label: 'Target Lower', color: ChartUtils.hexToRgba(ChartUtils.colors.rate, 0.6), value: `${dfedtarl[dfedtarl.length-1].value.toFixed(2)}%` },
+    ...(effr.length ? [{ label: 'EFFR', color: ChartUtils.colors.effr, value: `${effr[effr.length-1].value.toFixed(2)}%` }] : []),
+  ]);
 
-  // IORB — teal dotted (interest on reserve balances — sets the floor)
-  if (iorb.length >= 2) {
-    const iorbS = chart.addSeries(LightweightCharts.LineSeries, {
-      color: '#2dd4bf',
-      lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dotted,
-      title: 'IORB',
-      priceLineVisible: false,
-      lastValueVisible: true,
-    });
-    iorbS.setData(toChartPoints(iorb));
-  }
-
-  fitWithPadding(chart);
-}
-
-// =============================================================================
-// DECISION TABLE
-// =============================================================================
-
-function renderDecisionTable(decisions) {
-  const tbody = document.getElementById('decision-tbody');
-  if (!tbody) return;
-
-  const shown = decisions.slice(0, 30);
-  if (shown.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="muted" style="padding:12px 8px;text-align:center">No decisions found</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = shown.map(d => {
-    const color = d.type === 'Hike' ? '#f87171' : '#34d399';
-    const sign  = d.bps > 0 ? '+' : '';
-    return `
-      <tr style="border-bottom:1px solid #1e1e2e">
-        <td style="padding:7px 8px;color:#e2e2e8">${formatDate(d.date)}</td>
-        <td style="padding:7px 8px;color:${color};font-weight:600">${d.type}</td>
-        <td style="padding:7px 8px;text-align:right;color:${color}">${sign}${d.bps}bps</td>
-        <td style="padding:7px 8px;text-align:right;color:#e2e2e8">${d.rateLower}–${d.rateUpper}%</td>
-      </tr>`;
-  }).join('');
+  ChartUtils.fitWithRightPadding(chart, dfedtaru.length);
 }
 
 // =============================================================================
@@ -372,14 +330,18 @@ function renderSepChart(data) {
 
   // Thin connecting line
   const line = chart.addSeries(LightweightCharts.LineSeries, {
-    color: hexToRgba('#f97316', 0.4),
+    color: ChartUtils.hexToRgba(ChartUtils.colors.rate, 0.4),
     lineWidth: 1,
-    title: 'SEP Median',
+    title: '',
     priceLineVisible: true,
     priceLineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: true,
   });
   line.setData(toChartPoints(fedtarmd));
+
+  addChartLegend('chart-sep', [
+    { label: 'SEP Median', color: ChartUtils.colors.rate, value: `${fedtarmd[fedtarmd.length-1].value.toFixed(2)}%` },
+  ]);
 
   // Large circle markers at each quarterly dot
   LightweightCharts.createSeriesMarkers(
@@ -387,14 +349,14 @@ function renderSepChart(data) {
     fedtarmd.map(p => ({
       time: p.date,
       position: 'inBar',
-      color: '#f97316',
+      color: ChartUtils.colors.rate,
       shape: 'circle',
       size: 2,
       text: `${p.value.toFixed(2)}%`,
     }))
   );
 
-  fitWithPadding(chart);
+  ChartUtils.fitWithRightPadding(chart, fedtarmd.length, 0.005);
 }
 
 // =============================================================================
@@ -410,18 +372,22 @@ function renderReverseRepoChart(data) {
   if (!chart) return;
 
   const area = chart.addSeries(LightweightCharts.AreaSeries, {
-    lineColor: '#818cf8',
-    topColor: hexToRgba('#818cf8', 0.35),
-    bottomColor: hexToRgba('#818cf8', 0.02),
+    lineColor: ChartUtils.colors.rrp,
+    topColor: ChartUtils.hexToRgba(ChartUtils.colors.rrp, 0.35),
+    bottomColor: ChartUtils.hexToRgba(ChartUtils.colors.rrp, 0.02),
     lineWidth: 2,
-    title: 'O/N RRP ($B)',
+    title: '',
     priceLineVisible: true,
     priceLineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: true,
   });
   // RRPONTSYD is already in billions
   area.setData(toChartPoints(rrpo));
-  fitWithPadding(chart);
+  addChartLegend('chart-rrpo', [
+    { label: 'O/N RRP', color: ChartUtils.colors.rrp, value: `$${rrpo[rrpo.length-1].value.toFixed(0)}B` },
+  ]);
+  // 20%: chart is half-width, so pixel-per-bar is halved vs full-width charts
+  ChartUtils.fitWithRightPadding(chart, rrpo.length, 0.04);
 }
 
 // =============================================================================
@@ -444,11 +410,11 @@ function renderBalanceSheetChart(data) {
 
   // Total assets — filled area (background context)
   const totalArea = chart.addSeries(LightweightCharts.AreaSeries, {
-    lineColor: '#a78bfa',
-    topColor: hexToRgba('#a78bfa', 0.2),
-    bottomColor: hexToRgba('#a78bfa', 0.0),
+    lineColor: ChartUtils.colors.balSheet,
+    topColor: ChartUtils.hexToRgba(ChartUtils.colors.balSheet, 0.2),
+    bottomColor: ChartUtils.hexToRgba(ChartUtils.colors.balSheet, 0),
     lineWidth: 2,
-    title: 'Total Assets',
+    title: '',
     priceLineVisible: true,
     priceLineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: true,
@@ -458,9 +424,9 @@ function renderBalanceSheetChart(data) {
   // Treasuries — blue line
   if (treast?.length >= 2) {
     const tLine = chart.addSeries(LightweightCharts.LineSeries, {
-      color: '#7aa2f7',
+      color: ChartUtils.colors.sofr,
       lineWidth: 2,
-      title: 'Treasuries',
+      title: '',
       priceLineVisible: false,
       lastValueVisible: true,
     });
@@ -470,16 +436,23 @@ function renderBalanceSheetChart(data) {
   // MBS — amber line
   if (mbst?.length >= 2) {
     const mLine = chart.addSeries(LightweightCharts.LineSeries, {
-      color: '#f59e0b',
+      color: ChartUtils.colors.mbs,
       lineWidth: 2,
-      title: 'MBS',
+      title: '',
       priceLineVisible: false,
       lastValueVisible: true,
     });
     mLine.setData(toB(mbst));
   }
 
-  fitWithPadding(chart);
+  const bsEntries = [
+    { label: 'Total Assets', color: ChartUtils.colors.balSheet, value: `$${(walcl[walcl.length-1].value/1000).toFixed(0)}B` },
+  ];
+  if (treast?.length) bsEntries.push({ label: 'Treasuries', color: ChartUtils.colors.sofr, value: `$${(treast[treast.length-1].value/1000).toFixed(0)}B` });
+  if (mbst?.length)   bsEntries.push({ label: 'MBS',        color: ChartUtils.colors.mbs,  value: `$${(mbst[mbst.length-1].value/1000).toFixed(0)}B` });
+  addChartLegend('chart-balance-sheet', bsEntries);
+
+  ChartUtils.fitWithRightPadding(chart, walcl.length);
 }
 
 // =============================================================================
@@ -495,18 +468,23 @@ function renderReserveBalancesChart(data) {
   if (!chart) return;
 
   const area = chart.addSeries(LightweightCharts.AreaSeries, {
-    lineColor: '#34d399',
-    topColor: hexToRgba('#34d399', 0.3),
-    bottomColor: hexToRgba('#34d399', 0.02),
+    lineColor: ChartUtils.colors.reserves,
+    topColor: ChartUtils.hexToRgba(ChartUtils.colors.reserves, 0.3),
+    bottomColor: ChartUtils.hexToRgba(ChartUtils.colors.reserves, 0.02),
     lineWidth: 2,
-    title: 'Reserve Balances ($B)',
+    title: '',
     priceLineVisible: true,
     priceLineStyle: LightweightCharts.LineStyle.Dashed,
     lastValueVisible: true,
   });
   // WRESBAL is already in billions
   area.setData(toChartPoints(wresbal));
-  fitWithPadding(chart);
+  addChartLegend('chart-wresbal', [
+    { label: 'Reserves', color: ChartUtils.colors.reserves, value: `$${wresbal[wresbal.length-1].value.toFixed(0)}B` },
+  ]);
+  // 15%: WRESBAL goes back to 1959 (~3500 weekly bars), minBarSpacing compresses
+  // each bar to ~0.24px, so 7.5% gives barely 60px of right gap
+  ChartUtils.fitWithRightPadding(chart, wresbal.length, 0.03);
 }
 
 // =============================================================================
@@ -532,7 +510,6 @@ async function init() {
     for (const [fn, args] of [
       [renderRateHistoryChart,    [data, decisions]],
       [renderRateCorridorChart,   [data]],
-      [renderDecisionTable,       [decisions]],
       [renderSepChart,            [data]],
       [renderReverseRepoChart,    [data]],
       [renderBalanceSheetChart,   [data]],
