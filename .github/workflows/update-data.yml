@@ -36,8 +36,14 @@ jobs:
       - name: Fetch hourly + daily data from Yahoo Finance
         run: python3 fetch_data.py
 
-      - name: Commit and push CSV data (if any)
+      - name: Generate divergence + macro cache
+        run: python3 generate_cache.py
+
+      - name: Generate trading signals cache
+        run: python3 generate_trading_cache.py
+
+      - name: Commit and push CSV + cache data (if any)
         run: |
-          git add data/*.csv data/last_updated.txt
-          git diff --cached --quiet || git commit -m "Update data (Yahoo Finance)"
+          git add data/*.csv data/last_updated.txt data/cache/*.json
+          git diff --cached --quiet || git commit -m "Update data and cache (Yahoo Finance + analysis)"
           git push
