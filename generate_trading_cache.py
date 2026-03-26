@@ -29,18 +29,31 @@ DATA_DIR = Path("data")
 CACHE_DIR = DATA_DIR / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Ticker overrides matching fetch_data.py
-TICKER_MAP = {
-    'BTC': 'BTC-USD',
-    'ETH': 'ETH-USD',
-    'VIX': '^VIX',
-}
+def load_trading_config() -> tuple:
+    """
+    Load trading_config.json.
+    Returns (trading_symbols, regime_symbols, ticker_map).
+    """
+    config_path = Path("trading_config.json")
+    if not config_path.exists():
+        raise FileNotFoundError("trading_config.json not found")
 
-# Symbols for trading analysis
-TRADING_SYMBOLS = ['SPY', 'QQQ', 'IWM', 'SMH', 'BTC', 'ETH', 'GLD', 'SLV', 'USO']
+    with config_path.open() as f:
+        config = json.load(f)
 
-# Symbols used for regime detection (index equities only)
-REGIME_SYMBOLS = ['SPY', 'QQQ', 'IWM']
+    trading_symbols = []
+    regime_symbols = []
+    ticker_map = {}
+
+    for entry in config["symbols"]:
+        symbol = entry["symbol"]
+        trading_symbols.append(symbol)
+        if entry.get("regime"):
+            regime_symbols.append(symbol)
+        if "ticker" in entry:
+            ticker_map[symbol] = entry["ticker"]
+
+    return trading_symbols, regime_symbols, ticker_map
 
 # =============================================================================
 # DATA LOADING
@@ -284,6 +297,232 @@ def calculate_moving_average(points: list, period: int) -> list:
 
     return ma_values
 
+def _find_pivot_highs(scalar_points: list, left_bars: int, right_bars: int) -> list:
+    """
+    ThinkScript-style pivot high detection on [(timestamp, scalar), ...].
+    Returns [{'idx': int, 'time': int, 'price': float}, ...]
+    """
+    pivots = []
+    for i in range(1, len(scalar_points) - 1):
+        curr = scalar_points[i][1]
+        is_pivot = True
+        for j in range(1, min(left_bars, i) + 1):
+            if scalar_points[i - j][1] >= curr:
+                is_pivot = False
+                break
+        if is_pivot:
+            for j in range(1, min(right_bars, len(scalar_points) - 1 - i) + 1):
+                if scalar_points[i + j][1] >= curr:
+                    is_pivot = False
+                    break
+        if is_pivot:
+            pivots.append({'idx': i, 'time': scalar_points[i][0], 'price': curr})
+    return pivots
+
+
+def _find_pivot_lows(scalar_points: list, left_bars: int, right_bars: int) -> list:
+    """
+    ThinkScript-style pivot low detection on [(timestamp, scalar), ...].
+    Returns [{'idx': int, 'time': int, 'price': float}, ...]
+    """
+    pivots = []
+    for i in range(1, len(scalar_points) - 1):
+        curr = scalar_points[i][1]
+        is_pivot = True
+        for j in range(1, min(left_bars, i) + 1):
+            if scalar_points[i - j][1] <= curr:
+                is_pivot = False
+                break
+        if is_pivot:
+            for j in range(1, min(right_bars, len(scalar_points) - 1 - i) + 1):
+                if scalar_points[i + j][1] <= curr:
+                    is_pivot = False
+                    break
+        if is_pivot:
+            pivots.append({'idx': i, 'time': scalar_points[i][0], 'price': curr})
+    return pivots
+
+
+def calculate_vwap(hourly_points: list) -> dict:
+    """
+    Calculate session VWAP anchored to the start of the current trading day.
+    Returns {'vwap': float, 'above_vwap': bool, 'distance_pct': float}
+    """
+    if not hourly_points:
+        return {'vwap': None, 'above_vwap': None, 'distance_pct': None}
+
+    last_dt = datetime.fromtimestamp(hourly_points[-1][0], tz=timezone.utc)
+    today_date = last_dt.date()
+
+    today_bars = [p for p in hourly_points
+                  if datetime.fromtimestamp(p[0], tz=timezone.utc).date() == today_date]
+
+    if not today_bars:
+        return {'vwap': None, 'above_vwap': None, 'distance_pct': None}
+
+    cum_tp_vol = 0.0
+    cum_vol = 0
+    for _, ohlcv in today_bars:
+        tp = (ohlcv['high'] + ohlcv['low'] + ohlcv['close']) / 3
+        cum_tp_vol += tp * ohlcv['volume']
+        cum_vol += ohlcv['volume']
+
+    if cum_vol == 0:
+        return {'vwap': None, 'above_vwap': None, 'distance_pct': None}
+
+    vwap = cum_tp_vol / cum_vol
+    close = hourly_points[-1][1]['close']
+    distance_pct = ((close - vwap) / vwap) * 100 if vwap != 0 else 0.0
+
+    return {
+        'vwap': round(vwap, 2),
+        'above_vwap': close > vwap,
+        'distance_pct': round(distance_pct, 2)
+    }
+
+
+def calculate_rsi_divergence(hourly_points: list, swing: int = 3) -> dict:
+    """
+    Detect RSI divergence on hourly data using pivot detection.
+
+    Bearish: price makes higher high, RSI makes lower high at same pivots
+    Bullish: price makes lower low,  RSI makes higher low at same pivots
+
+    Returns {'signal': 'bullish'|'bearish'|'none'|'unknown', 'description': str}
+    """
+    unknown = {'signal': 'unknown', 'description': 'Insufficient data'}
+
+    if len(hourly_points) < 30:
+        return unknown
+
+    close_points = [(p[0], p[1]['close']) for p in hourly_points]
+    rsi_values = calculate_rsi(hourly_points, 14)
+
+    if len(rsi_values) < 10:
+        return unknown
+
+    # Only examine bars where RSI is available
+    rsi_start_ts = rsi_values[0][0]
+    valid_closes = [(ts, c) for ts, c in close_points if ts >= rsi_start_ts]
+
+    if len(valid_closes) < swing * 2 + 1:
+        return unknown
+
+    # Map RSI by timestamp for fast lookup; interpolate to nearest bar
+    def rsi_at(ts):
+        return min(rsi_values, key=lambda x: abs(x[0] - ts))[1]
+
+    bearish_div = False
+    bullish_div = False
+
+    # Bearish: price HH, RSI LH — look at last 2 pivot highs
+    price_highs = _find_pivot_highs(valid_closes, swing, swing)
+    if len(price_highs) >= 2:
+        ph1, ph2 = price_highs[-2], price_highs[-1]
+        if ph2['price'] > ph1['price'] and rsi_at(ph2['time']) < rsi_at(ph1['time']):
+            bearish_div = True
+
+    # Bullish: price LL, RSI HL — look at last 2 pivot lows
+    price_lows = _find_pivot_lows(valid_closes, swing, swing)
+    if len(price_lows) >= 2:
+        pl1, pl2 = price_lows[-2], price_lows[-1]
+        if pl2['price'] < pl1['price'] and rsi_at(pl2['time']) > rsi_at(pl1['time']):
+            bullish_div = True
+
+    if bullish_div and bearish_div:
+        return {'signal': 'both', 'description': 'Bullish + bearish divergence'}
+    if bullish_div:
+        return {'signal': 'bullish', 'description': 'Price LL, RSI HL'}
+    if bearish_div:
+        return {'signal': 'bearish', 'description': 'Price HH, RSI LH'}
+    return {'signal': 'none', 'description': 'No divergence'}
+
+
+def calculate_squeeze(hourly_points: list) -> dict:
+    """
+    Calculate TTM Squeeze indicator on hourly data.
+
+    Squeeze status:
+      'strong'  — BB inside KC at 1.5x ATR multiplier
+      'normal'  — BB inside KC at 2.0x (but not 1.5x)
+      'weak'    — BB inside KC at 2.5x (but not 2.0x)
+      'none'    — BB outside all KC (squeeze fired)
+      'unknown' — insufficient data
+
+    Returns {'status': str, 'momentum': float, 'momentum_increasing': bool}
+    """
+    if len(hourly_points) < 20:
+        return {'status': 'unknown', 'momentum': 0.0, 'momentum_increasing': False}
+
+    def _squeeze_at(pts):
+        """Compute squeeze status and momentum for a given points slice."""
+        closes = [p[1]['close'] for p in pts]
+        last20_closes = closes[-20:]
+
+        # Bollinger Bands: SMA(20) and stddev
+        sma20 = sum(last20_closes) / 20
+        variance = sum((c - sma20) ** 2 for c in last20_closes) / 20
+        stddev = math.sqrt(variance)
+        bb_width = 4 * stddev  # upper - lower = 2*2σ
+
+        # Keltner Channel midline: EMA(20)
+        ema20_vals = _calculate_ema(closes, 20)
+        if not ema20_vals:
+            return None
+        kc_mid = ema20_vals[-1]
+
+        # ATR(14) on available bars
+        atr_vals = calculate_atr(pts, 14)
+        if not atr_vals:
+            return None
+        atr = atr_vals[-1][1]
+
+        # Three KC widths
+        kc_1_5 = 2 * 1.5 * atr
+        kc_2_0 = 2 * 2.0 * atr
+        kc_2_5 = 2 * 2.5 * atr
+
+        # Squeeze status
+        if bb_width < kc_1_5:
+            status = 'strong'
+        elif bb_width < kc_2_0:
+            status = 'normal'
+        elif bb_width < kc_2_5:
+            status = 'weak'
+        else:
+            status = 'none'
+
+        # Momentum: midpoint of (HH20, LL20, KC upper 2x, KC lower 2x)
+        last20 = pts[-20:]
+        hh20 = max(p[1]['high'] for p in last20)
+        ll20 = min(p[1]['low'] for p in last20)
+        kc_upper_2x = kc_mid + 2.0 * atr
+        kc_lower_2x = kc_mid - 2.0 * atr
+        midpoint = (hh20 + ll20 + kc_upper_2x + kc_lower_2x) / 4
+        momentum = pts[-1][1]['close'] - midpoint
+
+        return status, momentum
+
+    result = _squeeze_at(hourly_points)
+    if result is None:
+        return {'status': 'unknown', 'momentum': 0.0, 'momentum_increasing': False}
+
+    status, momentum = result
+
+    # Momentum increasing: compare to 3 bars ago
+    momentum_increasing = False
+    if len(hourly_points) >= 23:
+        prev_result = _squeeze_at(hourly_points[:-3])
+        if prev_result is not None:
+            _, prev_momentum = prev_result
+            momentum_increasing = momentum > prev_momentum
+
+    return {
+        'status': status,
+        'momentum': round(momentum, 4),
+        'momentum_increasing': momentum_increasing
+    }
+
 # =============================================================================
 # PATTERN DETECTION
 # =============================================================================
@@ -320,17 +559,31 @@ def detect_gap(points: list) -> dict:
         'gap_strong': abs(gap_pct) > 2.0
     }
 
-def detect_outside_day(points: list) -> bool:
+def detect_outside_day(points: list) -> str:
     """
-    Detect if today is an outside day (high > prev high AND low < prev low)
+    Detect outside day and return directional bias.
+    Returns 'up' (close in upper 25% of range), 'down' (close in lower 25%), or 'none'.
+    Neutral closes (middle 50%) are skipped per trading rules.
     """
     if len(points) < 2:
-        return False
+        return 'none'
 
     today = points[-1][1]
     prev = points[-2][1]
 
-    return today['high'] > prev['high'] and today['low'] < prev['low']
+    if not (today['high'] > prev['high'] and today['low'] < prev['low']):
+        return 'none'
+
+    day_range = today['high'] - today['low']
+    if day_range == 0:
+        return 'none'
+
+    close_pct = (today['close'] - today['low']) / day_range
+    if close_pct >= 0.75:
+        return 'up'
+    if close_pct <= 0.25:
+        return 'down'
+    return 'none'
 
 def detect_orb_qualified(atr_current: float, atr_20day_avg: float, opening_range_size: float) -> bool:
     """
@@ -342,6 +595,38 @@ def detect_orb_qualified(atr_current: float, atr_20day_avg: float, opening_range
 
     avg_daily_range = atr_20day_avg
     return opening_range_size > (0.75 * avg_daily_range)
+
+def detect_engulfing(points: list, volume_20day_avg: float) -> str:
+    """
+    Detect bullish or bearish engulfing candle pattern.
+    Requires volume confirmation (current candle volume > 20d avg).
+    Returns 'bullish', 'bearish', or 'none'.
+    """
+    if len(points) < 2:
+        return 'none'
+
+    prev = points[-2][1]
+    curr = points[-1][1]
+
+    volume_confirmed = curr['volume'] > volume_20day_avg if volume_20day_avg > 0 else False
+    if not volume_confirmed:
+        return 'none'
+
+    prev_bullish = prev['close'] > prev['open']
+    curr_bullish = curr['close'] > curr['open']
+
+    # Bullish engulfing: prev bearish, curr bullish body covers prev body
+    if not prev_bullish and curr_bullish:
+        if curr['open'] <= prev['close'] and curr['close'] >= prev['open']:
+            return 'bullish'
+
+    # Bearish engulfing: prev bullish, curr bearish body covers prev body
+    if prev_bullish and not curr_bullish:
+        if curr['open'] >= prev['close'] and curr['close'] <= prev['open']:
+            return 'bearish'
+
+    return 'none'
+
 
 def calculate_opening_range(hourly_points: list) -> float:
     """
@@ -388,10 +673,10 @@ def grade_day_quality(points: list, atr_current: float, atr_20day_avg: float,
     volume_above_20 = today['volume'] > volume_20day_avg if volume_20day_avg > 0 else False
     volume_above_50 = today['volume'] > volume_50day_avg if volume_50day_avg > 0 else False
 
-    if not atr_above and not volume_above_20:
+    if not atr_above and not volume_above_50:
         return 'C'
 
-    if atr_above and volume_above_20 and prior_move_pct < 3.0:
+    if atr_above and volume_above_50 and prior_move_pct < 3.0:
         # A+: additionally require price above a rising 20-day MA
         ma20_values = calculate_moving_average(points, 20)
         if len(ma20_values) >= 10:
@@ -401,7 +686,7 @@ def grade_day_quality(points: list, atr_current: float, atr_20day_avg: float,
                 return 'A+'
         return 'A'
 
-    if atr_above and volume_above_20:
+    if atr_above and volume_above_50:
         return 'A'
 
     return 'B'
@@ -501,7 +786,8 @@ def detect_regime(symbols: list, daily_data: dict, hourly_data: dict) -> dict:
 
 def generate_trading_signals():
     """Generate trading signals cache file"""
-    symbols = TRADING_SYMBOLS
+    trading_symbols, regime_symbols, ticker_map = load_trading_config()
+    symbols = trading_symbols
     if not symbols:
         print("ERROR: No trading symbols defined")
         return False
@@ -558,9 +844,14 @@ def generate_trading_signals():
 
         # Pattern detection
         gap = detect_gap(points)
-        outside_day = detect_outside_day(points)
+        outside_day_dir = detect_outside_day(points)
+        outside_day = outside_day_dir in ['up', 'down']
         opening_range = calculate_opening_range(hourly_data[symbol]) if hourly_data[symbol] else 0.0
         orb_qualified = detect_orb_qualified(atr_current, atr_20day_avg, opening_range)
+        engulfing = detect_engulfing(points, volume_20day_avg)
+        squeeze = calculate_squeeze(hourly_data[symbol]) if hourly_data[symbol] else {'status': 'unknown', 'momentum': 0.0, 'momentum_increasing': False}
+        vwap = calculate_vwap(hourly_data[symbol]) if hourly_data[symbol] else {'vwap': None, 'above_vwap': None, 'distance_pct': None}
+        rsi_divergence = calculate_rsi_divergence(hourly_data[symbol]) if hourly_data[symbol] else {'signal': 'unknown', 'description': 'No hourly data'}
 
         # Day quality (first symbol sets day grade)
         if symbol == 'SPY':
@@ -596,12 +887,17 @@ def generate_trading_signals():
             'gap_significant': gap['gap_significant'],
             'gap_strong': gap['gap_strong'],
             'outside_day': outside_day,
+            'outside_day_direction': outside_day_dir,
             'patterns': {
                 'orb_qualified': orb_qualified,
-                'gap_fill_candidate': gap['gap_significant'] and gap['gap_type'] == 'up',
+                'gap_fill_candidate': gap['gap_significant'] and gap['gap_type'] in ['up', 'down'],
                 'gap_continuation_candidate': gap['gap_strong'] and gap['gap_type'] in ['up', 'down'],
                 'outside_day': outside_day
-            }
+            },
+            'engulfing': engulfing,
+            'squeeze': squeeze,
+            'vwap': vwap,
+            'rsi_divergence': rsi_divergence
         }
 
         # Track active patterns
@@ -613,7 +909,7 @@ def generate_trading_signals():
                 'notes': f"ATR {atr_current:.2f} > avg {atr_20day_avg:.2f}, range {opening_range:.2f}"
             })
 
-        if gap['gap_significant']:
+        if gap['gap_strong']:
             output['active_patterns'].append({
                 'symbol': symbol,
                 'pattern': 'Gap',
@@ -621,15 +917,23 @@ def generate_trading_signals():
                 'notes': f"Gap {gap['gap_pct']:.2f}%"
             })
 
+        if engulfing in ['bullish', 'bearish']:
+            output['active_patterns'].append({
+                'symbol': symbol,
+                'pattern': 'Engulfing',
+                'direction': 'up' if engulfing == 'bullish' else 'down',
+                'notes': f"{'Bullish' if engulfing == 'bullish' else 'Bearish'} engulfing, vol confirmed"
+            })
+
         if outside_day:
             output['active_patterns'].append({
                 'symbol': symbol,
                 'pattern': 'Outside Day',
-                'direction': 'watch',
-                'notes': f"High {today_ohlcv['high']:.2f}, Low {today_ohlcv['low']:.2f}"
+                'direction': outside_day_dir,
+                'notes': f"Close {'upper' if outside_day_dir == 'up' else 'lower'} 25%: {today_ohlcv['close']:.2f} (H {today_ohlcv['high']:.2f} / L {today_ohlcv['low']:.2f})"
             })
 
-    output['regime'] = detect_regime(REGIME_SYMBOLS, daily_data, hourly_data)
+    output['regime'] = detect_regime(regime_symbols, daily_data, hourly_data)
 
     # Write cache file
     cache_path = CACHE_DIR / 'trading_signals.json'

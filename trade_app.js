@@ -274,6 +274,32 @@ function renderPatternScanner() {
 }
 
 // =============================================================================
+// HELPERS
+// =============================================================================
+
+function squeezeHTML(squeeze) {
+  if (!squeeze) squeeze = { status: 'unknown', momentum_increasing: false };
+  const colors = {
+    strong:  '#ef4444',
+    normal:  '#f97316',
+    weak:    '#eab308',
+    none:    '#10b981',
+    unknown: '#6b7280'
+  };
+  const labels = {
+    strong:  'Strong',
+    normal:  'Normal',
+    weak:    'Weak',
+    none:    'Fired',
+    unknown: 'N/A'
+  };
+  const color = colors[squeeze.status] || colors.unknown;
+  const label = labels[squeeze.status] || 'N/A';
+  const arrow = squeeze.status !== 'unknown' ? (squeeze.momentum_increasing ? ' ▲' : ' ▼') : '';
+  return `<span style="color: ${color}; font-weight: bold;">${label}${arrow}</span>`;
+}
+
+// =============================================================================
 // STEP 4: CONFLUENCE SCORING
 // =============================================================================
 
@@ -295,16 +321,23 @@ function scoreConfluences() {
     .map(p => {
       const sym = p.symbol;
       const data = cacheData.symbols[sym];
+      const squeeze = data.squeeze || { status: 'unknown', momentum: 0, momentum_increasing: false };
+      const vwap = data.vwap || { vwap: null, above_vwap: null, distance_pct: null };
+      const rsiDiv = data.rsi_divergence || { signal: 'unknown' };
+      const tradeDay = new Date(cacheData.generated).getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri
 
       let score = 0;
       const checks = {
         'Volume > 20d avg':  !!data.volume_above_20d,
         'ATR above avg':     !!data.atr_above_avg,
         'RSI extreme':       (data.rsi_14 < 35) || (data.rsi_14 > 65),
-        'MACD aligned':      data.macd_histogram !== 0,
+        'MACD aligned':      p.direction === 'up' ? data.macd_histogram > 0 : data.macd_histogram < 0,
         'MA(20) aligned':    p.direction === 'up' ? !!data.above_ma_20 : !data.above_ma_20,
         'Day A or A+':       ['A', 'A+'].includes(cacheData.day_quality.grade),
-        'Regime matches':    true
+        'Regime matches':    true,
+        'Squeeze aligned':   squeeze.status !== 'none' && squeeze.status !== 'unknown' &&
+                             (p.direction === 'up' ? squeeze.momentum_increasing === true : squeeze.momentum_increasing === false),
+        'Weekday edge':      [2, 3, 4].includes(tradeDay)
       };
 
       Object.values(checks).forEach(c => { if (c) score++; });
@@ -315,7 +348,10 @@ function scoreConfluences() {
         direction: p.direction,
         score: score,
         data: data,
-        checks: checks
+        checks: checks,
+        squeeze: squeeze,
+        vwap: vwap,
+        rsiDiv: rsiDiv
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -330,8 +366,9 @@ function scoreConfluences() {
     html = `<div style="display: flex; flex-wrap: wrap; gap: 12px;">`;
 
     scored.forEach(trade => {
-      const sizeLabel = trade.score >= 6 ? 'Full Size' : trade.score >= 4 ? '75% Size' : '50% Size';
-      const sizeColor = trade.score >= 6 ? '#10b981' : trade.score >= 4 ? '#f59e0b' : '#3b82f6';
+      const sizeLabel = trade.score >= 7 ? 'Full Size' : trade.score >= 5 ? '75% Size' : '50% Size';
+      const sizeColor = trade.score >= 7 ? '#10b981' : trade.score >= 5 ? '#f59e0b' : '#3b82f6';
+      const sqBadge = squeezeHTML(trade.squeeze);
 
       html += `
         <div style="border: 2px solid ${sizeColor}; border-radius: 6px; padding: 14px; width: 400px; box-sizing: border-box;">
@@ -339,7 +376,7 @@ function scoreConfluences() {
           <div style="font-size: 0.85em; color: #a7a7ad; margin-bottom: 8px;">${trade.pattern}</div>
           <div style="margin-bottom: 10px;">
             <span style="background: ${sizeColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">
-              ${trade.score}/7 ${getDotsHTML(trade.score, 7)}
+              ${trade.score}/9 ${getDotsHTML(trade.score, 9)}
             </span>
           </div>
           <div style="font-size: 0.8em; font-weight: bold; color: ${sizeColor}; margin-bottom: 6px;">${sizeLabel}</div>
@@ -349,7 +386,9 @@ function scoreConfluences() {
         html += `<div style="color: ${val ? '#10b981' : '#4b5563'};">${val ? '✓' : '✗'} ${key}</div>`;
       });
 
-      html += `</div></div>`;
+      html += `</div>
+          <div style="margin-top: 8px; font-size: 0.8em;">Squeeze: ${sqBadge}</div>
+        </div>`;
     });
 
     html += `</div>`;
@@ -387,10 +426,10 @@ function renderRecommendations(scored) {
       const dir = isUp ? '+' : '−';
 
       if (trade.pattern === 'ORB') {
-        entry   = `Break above opening range high`;
-        stop    = `Below opening range low`;
-        target1 = `${dir}$${atrT1} from entry (1.5x ATR)`;
-        target2 = `${dir}$${atrT2} from entry (2x ATR)`;
+        entry   = `ORB in play — watch for breakout 10:00–11:30 AM`;
+        stop    = `Opposite side of opening range`;
+        target1 = `$${atrT1} from entry (1.5x ATR)`;
+        target2 = `$${atrT2} from entry (2x ATR)`;
         target3 = `Trailing $${atrStop} (1x ATR)`;
       } else if (trade.pattern === 'Gap') {
         if (regime === 'Trending') {
@@ -410,6 +449,12 @@ function renderRecommendations(scored) {
         target1 = `${dir}$${atrT1} from entry (1.5x ATR)`;
         target2 = `${dir}$${atrT2} from entry (2x ATR)`;
         target3 = `Trailing $${atrStop} (1x ATR)`;
+      } else if (trade.pattern === 'Engulfing') {
+        entry   = isUp ? `Above $${d.high.toFixed(2)} (engulfing candle high)` : `Below $${d.low.toFixed(2)} (engulfing candle low)`;
+        stop    = isUp ? `Below $${d.low.toFixed(2)} (engulfing candle low)` : `Above $${d.high.toFixed(2)} (engulfing candle high)`;
+        target1 = `${dir}$${atrT1} from entry (1.5x ATR)`;
+        target2 = `${dir}$${atrT2} from entry (2x ATR)`;
+        target3 = `Trailing $${atrStop} (1x ATR)`;
       } else {
         entry   = 'Pattern-specific entry';
         stop    = `$${atrStop} from entry (1x ATR)`;
@@ -418,7 +463,15 @@ function renderRecommendations(scored) {
         target3 = `Trailing $${atrStop} (1x ATR)`;
       }
 
-      const sizeColor = trade.score >= 6 ? '#10b981' : trade.score >= 4 ? '#f59e0b' : '#3b82f6';
+      const sizeColor = trade.score >= 7 ? '#10b981' : trade.score >= 5 ? '#f59e0b' : '#3b82f6';
+      const sqBadgeRec = squeezeHTML(trade.squeeze);
+
+      const vwapColor = trade.vwap.above_vwap === null ? '#6b7280' : trade.vwap.above_vwap ? '#10b981' : '#ef4444';
+      const vwapLabel = trade.vwap.vwap !== null
+        ? `$${trade.vwap.vwap.toFixed(2)} (${trade.vwap.distance_pct > 0 ? '+' : ''}${trade.vwap.distance_pct}%)`
+        : 'N/A';
+      const rsidivColors = { bullish: '#10b981', bearish: '#ef4444', both: '#f97316', none: '#4b5563', unknown: '#6b7280' };
+      const rsidivLabels = { bullish: '▲ Bullish', bearish: '▼ Bearish', both: '⚡ Both', none: 'None', unknown: 'N/A' };
 
       html += `
         <div style="border: 2px solid ${sizeColor}; border-radius: 6px; padding: 14px; width: 400px; box-sizing: border-box;">
@@ -429,7 +482,7 @@ function renderRecommendations(scored) {
                 ${trade.pattern} ${trade.direction}
               </span>
             </div>
-            <span style="font-weight: bold; color: ${sizeColor}; font-size: 0.85em;">${trade.score}/7 ${getDotsHTML(trade.score, 7)}</span>
+            <span style="font-weight: bold; color: ${sizeColor}; font-size: 0.85em;">${trade.score}/9 ${getDotsHTML(trade.score, 9)}</span>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; font-size: 0.85em;">
@@ -445,22 +498,33 @@ function renderRecommendations(scored) {
             <div><strong>T3 (33%):</strong> ${target3}</div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 0.8em;">
-            <div class="pill">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.8em;">
+            <div style="background: #22242a; padding: 8px; border-radius: 8px;">
               <div class="muted">RSI</div>
               <strong>${d.rsi_14.toFixed(1)}</strong>
+              ${trade.rsiDiv.signal !== 'none' && trade.rsiDiv.signal !== 'unknown'
+                ? `<div style="color: ${rsidivColors[trade.rsiDiv.signal]}; font-size: 0.85em; margin-top: 2px;">${rsidivLabels[trade.rsiDiv.signal]}</div>`
+                : ''}
             </div>
-            <div class="pill">
+            <div style="background: #22242a; padding: 8px; border-radius: 8px;">
               <div class="muted">MACD</div>
               <span style="color: ${d.macd_histogram > 0 ? '#10b981' : '#ef4444'};">
                 ${d.macd_histogram > 0 ? '▲ Bull' : '▼ Bear'}
               </span>
             </div>
-            <div class="pill">
+            <div style="background: #22242a; padding: 8px; border-radius: 8px;">
               <div class="muted">MA(20)</div>
               <span style="color: ${d.above_ma_20 ? '#10b981' : '#ef4444'};">
                 ${d.above_ma_20 ? '▲ Above' : '▼ Below'}
               </span>
+            </div>
+            <div style="background: #22242a; padding: 8px; border-radius: 8px;">
+              <div class="muted">Squeeze</div>
+              ${sqBadgeRec}
+            </div>
+            <div style="background: #22242a; padding: 8px; border-radius: 8px;">
+              <div class="muted">VWAP</div>
+              <span style="color: ${vwapColor};">${vwapLabel}</span>
             </div>
           </div>
         </div>`;
