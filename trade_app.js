@@ -641,13 +641,10 @@ function renderEodOutcomes() {
   const el = document.getElementById('eodContent');
   if (!el) return;
 
-  const gen = new Date(cacheData.generated);
-  const genHourUTC = gen.getUTCHours();
-
-  // Morning cache guard: market likely still open if before 21:00 UTC (4 PM ET)
+  // cache_type is set by Python at generation time: 'morning' or 'eod'
   let warningHTML = '';
-  if (genHourUTC < 21) {
-    const genStr = gen.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+  if (cacheData.cache_type === 'morning') {
+    const genStr = new Date(cacheData.generated).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
     warningHTML = `
       <div style="background: #1a1400; border: 1px solid #7c6a00; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; color: #f59e0b; font-size: 0.9em;">
         Cache generated at ${genStr} — market may still be open. Outcomes will update after the 4 PM ET close.
@@ -674,7 +671,7 @@ function renderEodOutcomes() {
     const eod = d.eod_outcome || {};
     const grade = cacheData.day_quality.grade;
 
-    // Gap section
+    // Gap section — all values pre-computed in Python
     let gapHTML = '';
     if (d.gap_type !== 'none') {
       const dir = d.gap_type === 'up' ? '▲' : '▼';
@@ -688,19 +685,18 @@ function renderEodOutcomes() {
         </div>`;
     }
 
-    // ORB section
+    // ORB section — all values pre-computed in Python (orb_breached, orb_direction, orb_hit_t1)
     let orbHTML = '';
     if (d.patterns && d.patterns.orb_qualified) {
       if (eod.orb_high != null) {
-        const breached = eod.orb_breached_up || eod.orb_breached_down;
         const dirLabel = eod.orb_direction === 'up' ? '▲ Up' : eod.orb_direction === 'down' ? '▼ Down' : '—';
-        const t1Color = eod.orb_hit_t1 ? '#10b981' : breached ? '#f59e0b' : '#6b7280';
-        const t1Label = eod.orb_hit_t1 ? '✓ T1 hit' : breached ? 'Breached, T1 missed' : 'No breach';
+        const t1Color = eod.orb_hit_t1 ? '#10b981' : eod.orb_breached ? '#f59e0b' : '#6b7280';
+        const t1Label = eod.orb_hit_t1 ? '✓ T1 hit' : eod.orb_breached ? 'Breached, T1 missed' : 'No breach';
         orbHTML = `
           <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px; flex-wrap:wrap;">
             <span style="font-weight:bold;">ORB</span>
             <span class="muted" style="font-size:0.9em;">$${eod.orb_low} – $${eod.orb_high}</span>
-            ${breached ? `<span style="color:#94a3b8; font-size:0.9em;">Broke ${dirLabel}</span>` : '<span style="color:#6b7280; font-size:0.9em;">No breach</span>'}
+            ${eod.orb_breached ? `<span style="color:#94a3b8; font-size:0.9em;">Broke ${dirLabel}</span>` : '<span style="color:#6b7280; font-size:0.9em;">No breach</span>'}
             <span style="color:${t1Color}; font-size:0.9em;">${t1Label}</span>
           </div>`;
       } else {
@@ -709,9 +705,9 @@ function renderEodOutcomes() {
       }
     }
 
-    // Day range row
+    // Day range — pre-computed in Python as day_range ($), day_atr_multiple, day_range_pct
     const rangeHTML = eod.day_atr_multiple > 0
-      ? `<div class="muted" style="font-size:0.85em;">Day range: $${(d.high - d.low).toFixed(2)} (${eod.day_atr_multiple.toFixed(1)}× ATR) &nbsp;|&nbsp; ${eod.day_range_pct.toFixed(2)}%</div>`
+      ? `<div class="muted" style="font-size:0.85em;">Day range: $${eod.day_range} (${eod.day_atr_multiple}× ATR) &nbsp;|&nbsp; ${eod.day_range_pct}%</div>`
       : '';
 
     return `

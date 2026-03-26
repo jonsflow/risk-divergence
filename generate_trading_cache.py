@@ -660,9 +660,11 @@ def calculate_eod_outcomes(points: list, hourly_points: list, gap: dict, atr_14:
         'orb_low': None,
         'orb_breached_up': False,
         'orb_breached_down': False,
+        'orb_breached': False,
         'orb_direction': 'none',
         'orb_hit_t1': False,
         'gap_filled': False,
+        'day_range': 0.0,
         'day_range_pct': 0.0,
         'day_atr_multiple': 0.0,
     }
@@ -677,9 +679,11 @@ def calculate_eod_outcomes(points: list, hourly_points: list, gap: dict, atr_14:
     today_close = today['close']
 
     # Day range stats
+    day_range = today_high - today_low
+    result['day_range'] = round(day_range, 2)
     if today_low > 0 and atr_14 > 0:
-        result['day_range_pct'] = round((today_high - today_low) / today_low * 100, 2)
-        result['day_atr_multiple'] = round((today_high - today_low) / atr_14, 2)
+        result['day_range_pct'] = round(day_range / today_low * 100, 2)
+        result['day_atr_multiple'] = round(day_range / atr_14, 2)
 
     # Gap fill: did intraday price cross the prior close?
     if gap['gap_type'] == 'up':
@@ -704,6 +708,7 @@ def calculate_eod_outcomes(points: list, hourly_points: list, gap: dict, atr_14:
             breached_down = today_low < orb_low
             result['orb_breached_up'] = breached_up
             result['orb_breached_down'] = breached_down
+            result['orb_breached'] = breached_up or breached_down
 
             if breached_up and breached_down:
                 # Both sides breached — direction follows the close
@@ -875,8 +880,13 @@ def generate_trading_signals():
 
     print(f"Generating trading signals for {len(symbols)} symbols: {', '.join(symbols)}...")
 
+    now_utc = datetime.now(timezone.utc)
+    # 'morning' if generated before 21:00 UTC (before 4 PM ET close), else 'eod'
+    cache_type = 'morning' if now_utc.hour < 21 else 'eod'
+
     output = {
-        'generated': datetime.now(timezone.utc).isoformat(),
+        'generated': now_utc.isoformat(),
+        'cache_type': cache_type,
         'day_quality': {},
         'regime': {},
         'symbols': {},

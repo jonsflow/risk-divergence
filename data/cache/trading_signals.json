@@ -1,5 +1,6 @@
 {
-  "generated": "2026-03-26T01:58:43.051053+00:00",
+  "generated": "2026-03-26T02:33:20.482967+00:00",
+  "cache_type": "morning",
   "day_quality": {
     "grade": "B",
     "modifiers": {
@@ -64,9 +65,11 @@
         "orb_low": 654.24,
         "orb_breached_up": false,
         "orb_breached_down": false,
+        "orb_breached": false,
         "orb_direction": "none",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 6.65,
         "day_range_pct": 1.02,
         "day_atr_multiple": 0.65
       }
@@ -119,9 +122,11 @@
         "orb_low": 585.69,
         "orb_breached_up": false,
         "orb_breached_down": false,
+        "orb_breached": false,
         "orb_direction": "none",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 5.68,
         "day_range_pct": 0.97,
         "day_atr_multiple": 0.57
       }
@@ -174,9 +179,11 @@
         "orb_low": 249.53,
         "orb_breached_up": false,
         "orb_breached_down": true,
+        "orb_breached": true,
         "orb_direction": "down",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 3.55,
         "day_range_pct": 1.42,
         "day_atr_multiple": 0.6
       }
@@ -229,9 +236,11 @@
         "orb_low": 395.74,
         "orb_breached_up": false,
         "orb_breached_down": false,
+        "orb_breached": false,
         "orb_direction": "none",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 6.76,
         "day_range_pct": 1.71,
         "day_atr_multiple": 0.57
       }
@@ -284,9 +293,11 @@
         "orb_low": 70510.43,
         "orb_breached_up": true,
         "orb_breached_down": true,
+        "orb_breached": true,
         "orb_direction": "up",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 1502.34,
         "day_range_pct": 2.13,
         "day_atr_multiple": 0.6
       }
@@ -339,9 +350,11 @@
         "orb_low": 2149.42,
         "orb_breached_up": true,
         "orb_breached_down": false,
+        "orb_breached": true,
         "orb_direction": "up",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 47.86,
         "day_range_pct": 2.23,
         "day_atr_multiple": 0.44
       }
@@ -394,9 +407,11 @@
         "orb_low": 415.6,
         "orb_breached_up": false,
         "orb_breached_down": true,
+        "orb_breached": true,
         "orb_direction": "down",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 8.41,
         "day_range_pct": 2.04,
         "day_atr_multiple": 0.73
       }
@@ -449,9 +464,11 @@
         "orb_low": 64.9,
         "orb_breached_up": false,
         "orb_breached_down": true,
+        "orb_breached": true,
         "orb_direction": "down",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 1.92,
         "day_range_pct": 2.98,
         "day_atr_multiple": 0.55
       }
@@ -504,9 +521,11 @@
         "orb_low": 109.02,
         "orb_breached_up": true,
         "orb_breached_down": false,
+        "orb_breached": true,
         "orb_direction": "up",
         "orb_hit_t1": false,
         "gap_filled": false,
+        "day_range": 5.22,
         "day_range_pct": 4.79,
         "day_atr_multiple": 0.54
       }
