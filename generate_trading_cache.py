@@ -642,6 +642,87 @@ def calculate_opening_range(hourly_points: list) -> float:
 
     return high - low
 
+
+def calculate_eod_outcomes(points: list, hourly_points: list, gap: dict, atr_14: float) -> dict:
+    """
+    Compute end-of-day trade outcome metrics.
+
+    Checks:
+    - Whether a gap filled (intraday price crossed prior close)
+    - Whether ORB was breached (daily high/low exceeded today's opening range)
+    - Whether T1 target (1.5x ATR from ORB breakout) was hit
+    - Day range stats (% range and ATR multiple)
+
+    Returns dict with orb_* and gap_filled fields.
+    """
+    result = {
+        'orb_high': None,
+        'orb_low': None,
+        'orb_breached_up': False,
+        'orb_breached_down': False,
+        'orb_direction': 'none',
+        'orb_hit_t1': False,
+        'gap_filled': False,
+        'day_range_pct': 0.0,
+        'day_atr_multiple': 0.0,
+    }
+
+    if len(points) < 2:
+        return result
+
+    today = points[-1][1]
+    prev_close = points[-2][1]['close']
+    today_high = today['high']
+    today_low = today['low']
+    today_close = today['close']
+
+    # Day range stats
+    if today_low > 0 and atr_14 > 0:
+        result['day_range_pct'] = round((today_high - today_low) / today_low * 100, 2)
+        result['day_atr_multiple'] = round((today_high - today_low) / atr_14, 2)
+
+    # Gap fill: did intraday price cross the prior close?
+    if gap['gap_type'] == 'up':
+        result['gap_filled'] = today_low <= prev_close
+    elif gap['gap_type'] == 'down':
+        result['gap_filled'] = today_high >= prev_close
+
+    # ORB: find today's hourly bars by date
+    if hourly_points:
+        today_date_str = datetime.fromtimestamp(points[-1][0], tz=timezone.utc).strftime('%Y-%m-%d')
+        today_bars = [
+            bar for bar in hourly_points
+            if datetime.fromtimestamp(bar[0], tz=timezone.utc).strftime('%Y-%m-%d') == today_date_str
+        ]
+        if len(today_bars) >= 2:
+            orb_high = max(today_bars[0][1]['high'], today_bars[1][1]['high'])
+            orb_low = min(today_bars[0][1]['low'], today_bars[1][1]['low'])
+            result['orb_high'] = round(orb_high, 2)
+            result['orb_low'] = round(orb_low, 2)
+
+            breached_up = today_high > orb_high
+            breached_down = today_low < orb_low
+            result['orb_breached_up'] = breached_up
+            result['orb_breached_down'] = breached_down
+
+            if breached_up and breached_down:
+                # Both sides breached — direction follows the close
+                midpoint = (orb_high + orb_low) / 2
+                result['orb_direction'] = 'up' if today_close > midpoint else 'down'
+            elif breached_up:
+                result['orb_direction'] = 'up'
+            elif breached_down:
+                result['orb_direction'] = 'down'
+
+            if atr_14 > 0:
+                t1_up = orb_high + 1.5 * atr_14
+                t1_down = orb_low - 1.5 * atr_14
+                hit_up = breached_up and today_high >= t1_up
+                hit_down = breached_down and today_low <= t1_down
+                result['orb_hit_t1'] = hit_up or hit_down
+
+    return result
+
 # =============================================================================
 # DAY QUALITY GRADING
 # =============================================================================
@@ -852,6 +933,7 @@ def generate_trading_signals():
         squeeze = calculate_squeeze(hourly_data[symbol]) if hourly_data[symbol] else {'status': 'unknown', 'momentum': 0.0, 'momentum_increasing': False}
         vwap = calculate_vwap(hourly_data[symbol]) if hourly_data[symbol] else {'vwap': None, 'above_vwap': None, 'distance_pct': None}
         rsi_divergence = calculate_rsi_divergence(hourly_data[symbol]) if hourly_data[symbol] else {'signal': 'unknown', 'description': 'No hourly data'}
+        eod_outcome = calculate_eod_outcomes(points, hourly_data.get(symbol, []), gap, atr_current)
 
         # Day quality (first symbol sets day grade)
         if symbol == 'SPY':
@@ -897,7 +979,8 @@ def generate_trading_signals():
             'engulfing': engulfing,
             'squeeze': squeeze,
             'vwap': vwap,
-            'rsi_divergence': rsi_divergence
+            'rsi_divergence': rsi_divergence,
+            'eod_outcome': eod_outcome
         }
 
         # Track active patterns

@@ -20,8 +20,9 @@ async function main() {
     // Render all steps
     renderHeader();
     renderDayQuality();
+    renderEodOutcomes();
 
-    // If day grade is C or F, stop here
+    // If day grade is C or F, stop here (Morning Setup tab only)
     if (['C', 'F'].includes(cacheData.day_quality.grade)) {
       document.getElementById('step-2').style.display = 'none';
       document.getElementById('step-3').style.display = 'none';
@@ -619,6 +620,114 @@ function getDotsHTML(filled, total) {
     dots += i < filled ? '●' : '○';
   }
   return dots;
+}
+
+// =============================================================================
+// SUB-TAB SWITCHING
+// =============================================================================
+
+function switchTradeTab(tab) {
+  document.querySelectorAll('#tab-morning, #tab-eod').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).style.display = 'block';
+  document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+}
+
+// =============================================================================
+// END OF DAY TAB
+// =============================================================================
+
+function renderEodOutcomes() {
+  const el = document.getElementById('eodContent');
+  if (!el) return;
+
+  const gen = new Date(cacheData.generated);
+  const genHourUTC = gen.getUTCHours();
+
+  // Morning cache guard: market likely still open if before 21:00 UTC (4 PM ET)
+  let warningHTML = '';
+  if (genHourUTC < 21) {
+    const genStr = gen.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+    warningHTML = `
+      <div style="background: #1a1400; border: 1px solid #7c6a00; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; color: #f59e0b; font-size: 0.9em;">
+        Cache generated at ${genStr} — market may still be open. Outcomes will update after the 4 PM ET close.
+      </div>`;
+  }
+
+  const symbols = cacheData.symbols;
+  const activeSymbols = Object.keys(symbols).filter(sym => {
+    const d = symbols[sym];
+    const hasPattern = cacheData.active_patterns.some(p => p.symbol === sym);
+    const hasGap = d.gap_type !== 'none';
+    return hasPattern || hasGap;
+  });
+
+  if (activeSymbols.length === 0) {
+    el.innerHTML = warningHTML + '<div class="muted">No setups detected today.</div>';
+    return;
+  }
+
+  const gradeColor = g => g === 'A+' || g === 'A' ? '#10b981' : g === 'B' ? '#f59e0b' : '#ef4444';
+
+  const cards = activeSymbols.map(sym => {
+    const d = symbols[sym];
+    const eod = d.eod_outcome || {};
+    const grade = cacheData.day_quality.grade;
+
+    // Gap section
+    let gapHTML = '';
+    if (d.gap_type !== 'none') {
+      const dir = d.gap_type === 'up' ? '▲' : '▼';
+      const dirLabel = d.gap_type === 'up' ? 'Gap Up' : 'Gap Down';
+      const filledColor = eod.gap_filled ? '#10b981' : '#f59e0b';
+      const filledLabel = eod.gap_filled ? '✓ Filled' : '○ Open';
+      gapHTML = `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+          <span style="color: ${d.gap_type === 'up' ? '#10b981' : '#ef4444'}; font-weight:bold;">${dir} ${dirLabel} ${d.gap_pct > 0 ? '+' : ''}${d.gap_pct.toFixed(2)}%</span>
+          <span style="color:${filledColor}; font-size:0.9em;">${filledLabel}</span>
+        </div>`;
+    }
+
+    // ORB section
+    let orbHTML = '';
+    if (d.patterns && d.patterns.orb_qualified) {
+      if (eod.orb_high != null) {
+        const breached = eod.orb_breached_up || eod.orb_breached_down;
+        const dirLabel = eod.orb_direction === 'up' ? '▲ Up' : eod.orb_direction === 'down' ? '▼ Down' : '—';
+        const t1Color = eod.orb_hit_t1 ? '#10b981' : breached ? '#f59e0b' : '#6b7280';
+        const t1Label = eod.orb_hit_t1 ? '✓ T1 hit' : breached ? 'Breached, T1 missed' : 'No breach';
+        orbHTML = `
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px; flex-wrap:wrap;">
+            <span style="font-weight:bold;">ORB</span>
+            <span class="muted" style="font-size:0.9em;">$${eod.orb_low} – $${eod.orb_high}</span>
+            ${breached ? `<span style="color:#94a3b8; font-size:0.9em;">Broke ${dirLabel}</span>` : '<span style="color:#6b7280; font-size:0.9em;">No breach</span>'}
+            <span style="color:${t1Color}; font-size:0.9em;">${t1Label}</span>
+          </div>`;
+      } else {
+        orbHTML = `
+          <div style="margin-bottom:8px; color:#6b7280; font-size:0.9em;">ORB qualified — no intraday data</div>`;
+      }
+    }
+
+    // Day range row
+    const rangeHTML = eod.day_atr_multiple > 0
+      ? `<div class="muted" style="font-size:0.85em;">Day range: $${(d.high - d.low).toFixed(2)} (${eod.day_atr_multiple.toFixed(1)}× ATR) &nbsp;|&nbsp; ${eod.day_range_pct.toFixed(2)}%</div>`
+      : '';
+
+    return `
+      <div style="background: var(--bg-card, #1a1a2e); border: 1px solid #2a2a3e; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-weight:bold; font-size:1.05em;">${sym}</span>
+          <span style="background:${gradeColor(grade)}; color:white; padding:2px 10px; border-radius:4px; font-size:0.85em;">${grade}</span>
+        </div>
+        <div style="color:#94a3b8; font-size:0.85em; margin-bottom:10px;">
+          O ${d.open} &nbsp; H ${d.high} &nbsp; L ${d.low} &nbsp; C ${d.close}
+        </div>
+        ${gapHTML}${orbHTML}${rangeHTML}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = warningHTML + cards;
 }
 
 // =============================================================================

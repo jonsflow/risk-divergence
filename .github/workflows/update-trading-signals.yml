@@ -1,0 +1,46 @@
+name: Update trading signals (morning premarket)
+
+on:
+  schedule:
+    # 9:00 AM ET weekdays (13:00 UTC during EST, 14:00 UTC during EDT)
+    - cron: "0 13 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-trading-signals
+  cancel-in-progress: false
+
+jobs:
+  update-signals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yfinance
+        run: pip install yfinance
+
+      - name: Pull latest changes before modifying data
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git pull --rebase origin main
+
+      - name: Fetch premarket hourly data
+        run: python3 fetch_trading_hourly.py
+
+      - name: Generate trading signals cache
+        run: python3 generate_trading_cache.py
+
+      - name: Commit and push updated data
+        run: |
+          git add data/*_hourly.csv data/cache/trading_signals.json
+          git diff --cached --quiet || git commit -m "Update trading signals (premarket)"
+          git push

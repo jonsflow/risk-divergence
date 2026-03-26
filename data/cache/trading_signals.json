@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-26T00:52:37.743967+00:00",
+  "generated": "2026-03-26T01:58:43.051053+00:00",
   "day_quality": {
     "grade": "B",
     "modifiers": {
@@ -58,6 +58,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 660.89,
+        "orb_low": 654.24,
+        "orb_breached_up": false,
+        "orb_breached_down": false,
+        "orb_direction": "none",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 1.02,
+        "day_atr_multiple": 0.65
       }
     },
     "QQQ": {
@@ -102,6 +113,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 591.37,
+        "orb_low": 585.69,
+        "orb_breached_up": false,
+        "orb_breached_down": false,
+        "orb_direction": "none",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 0.97,
+        "day_atr_multiple": 0.57
       }
     },
     "IWM": {
@@ -146,6 +168,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 253.07,
+        "orb_low": 249.53,
+        "orb_breached_up": false,
+        "orb_breached_down": true,
+        "orb_direction": "down",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 1.42,
+        "day_atr_multiple": 0.6
       }
     },
     "SMH": {
@@ -190,6 +223,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 402.5,
+        "orb_low": 395.74,
+        "orb_breached_up": false,
+        "orb_breached_down": false,
+        "orb_direction": "none",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 1.71,
+        "day_atr_multiple": 0.57
       }
     },
     "BTC": {
@@ -234,6 +278,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 70995.45,
+        "orb_low": 70510.43,
+        "orb_breached_up": true,
+        "orb_breached_down": true,
+        "orb_direction": "up",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 2.13,
+        "day_atr_multiple": 0.6
       }
     },
     "ETH": {
@@ -278,6 +333,17 @@
       "rsi_divergence": {
         "signal": "bearish",
         "description": "Price HH, RSI LH"
+      },
+      "eod_outcome": {
+        "orb_high": 2167.33,
+        "orb_low": 2149.42,
+        "orb_breached_up": true,
+        "orb_breached_down": false,
+        "orb_direction": "up",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 2.23,
+        "day_atr_multiple": 0.44
       }
     },
     "GLD": {
@@ -322,6 +388,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 420.66,
+        "orb_low": 415.6,
+        "orb_breached_up": false,
+        "orb_breached_down": true,
+        "orb_direction": "down",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 2.04,
+        "day_atr_multiple": 0.73
       }
     },
     "SLV": {
@@ -366,6 +443,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 66.4,
+        "orb_low": 64.9,
+        "orb_breached_up": false,
+        "orb_breached_down": true,
+        "orb_direction": "down",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 2.98,
+        "day_atr_multiple": 0.55
       }
     },
     "USO": {
@@ -410,6 +498,17 @@
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
+      },
+      "eod_outcome": {
+        "orb_high": 112.39,
+        "orb_low": 109.02,
+        "orb_breached_up": true,
+        "orb_breached_down": false,
+        "orb_direction": "up",
+        "orb_hit_t1": false,
+        "gap_filled": false,
+        "day_range_pct": 4.79,
+        "day_atr_multiple": 0.54
       }
     }
   },

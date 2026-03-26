@@ -28,40 +28,59 @@
     </div>
   </div>
 
-  <!-- Step 1: Day Quality Gate -->
-  <div class="card" id="step-1">
-    <h2>Step 1 — Day Quality Gate</h2>
-    <div id="step1Content"></div>
+  <!-- Sub-tab bar -->
+  <div class="tab-bar" style="margin: 0 0 16px 0;">
+    <button class="tab-btn active" data-tab="morning" onclick="switchTradeTab('morning')">Morning Setup</button>
+    <button class="tab-btn" data-tab="eod" onclick="switchTradeTab('eod')">End of Day</button>
   </div>
 
-  <!-- Step 2: Market Regime -->
-  <div class="card" id="step-2">
-    <h2>Step 2 — Market Regime</h2>
-    <div id="step2Content"></div>
+  <!-- Morning Setup panel -->
+  <div id="tab-morning" class="tab-panel">
+
+    <!-- Step 1: Day Quality Gate -->
+    <div class="card" id="step-1">
+      <h2>Step 1 — Day Quality Gate</h2>
+      <div id="step1Content"></div>
+    </div>
+
+    <!-- Step 2: Market Regime -->
+    <div class="card" id="step-2">
+      <h2>Step 2 — Market Regime</h2>
+      <div id="step2Content"></div>
+    </div>
+
+    <!-- Step 3: Pattern Scanner -->
+    <div class="card" id="step-3">
+      <h2>Step 3 — Pattern Scanner</h2>
+      <div id="step3Content"></div>
+    </div>
+
+    <!-- Step 4: Confluence Scoring -->
+    <div class="card" id="step-4">
+      <h2>Step 4 — Confluence Scoring</h2>
+      <div id="step4Content"></div>
+    </div>
+
+    <!-- Step 5: Trade Recommendations -->
+    <div class="card" id="step-5">
+      <h2>Step 5 — Trade Recommendations</h2>
+      <div id="step5Content"></div>
+    </div>
+
+    <!-- Step 6: Position Size Calculator -->
+    <div class="card" id="step-6">
+      <h2>Step 6 — Position Size Calculator</h2>
+      <div id="step6Content"></div>
+    </div>
+
   </div>
 
-  <!-- Step 3: Pattern Scanner -->
-  <div class="card" id="step-3">
-    <h2>Step 3 — Pattern Scanner</h2>
-    <div id="step3Content"></div>
-  </div>
-
-  <!-- Step 4: Confluence Scoring -->
-  <div class="card" id="step-4">
-    <h2>Step 4 — Confluence Scoring</h2>
-    <div id="step4Content"></div>
-  </div>
-
-  <!-- Step 5: Trade Recommendations -->
-  <div class="card" id="step-5">
-    <h2>Step 5 — Trade Recommendations</h2>
-    <div id="step5Content"></div>
-  </div>
-
-  <!-- Step 6: Position Size Calculator -->
-  <div class="card" id="step-6">
-    <h2>Step 6 — Position Size Calculator</h2>
-    <div id="step6Content"></div>
+  <!-- End of Day panel -->
+  <div id="tab-eod" class="tab-panel" style="display:none">
+    <div class="card">
+      <h2>End of Day — Setup Outcomes</h2>
+      <div id="eodContent">Loading…</div>
+    </div>
   </div>
 
   <script src="trade_app.js"></script>
