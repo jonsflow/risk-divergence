@@ -91,10 +91,18 @@ def classify_structure(points: list) -> tuple:
     hl = last_high['label'] if last_high else None
     ll = last_low['label']  if last_low  else None
 
+    # If current price has already broken below the last confirmed pivot low,
+    # treat it as an unconfirmed LL in progress (confirmation lag fix).
+    current_price = points[-1][1]
+    if last_low and current_price < last_low['price']:
+        ll = 'LL'
+
+    # Highs dominate direction: LH = bearish bias, HH = bullish bias.
+    # Mixed (LH+HL or HH+LL) lean in the direction of the highs.
     if   hl == 'HH' and ll == 'HL': trend_label = 'HH + HL \u2197'
     elif hl == 'LH' and ll == 'LL': trend_label = 'LL + LH \u2198'
-    elif hl == 'LH' and ll == 'HL': trend_label = 'LH + HL \u2194'
-    elif hl == 'HH' and ll == 'LL': trend_label = 'HH + LL \u2194'
+    elif hl == 'LH' and ll == 'HL': trend_label = 'LH + HL \u2198'  # lower highs dominate → bearish
+    elif hl == 'HH' and ll == 'LL': trend_label = 'HH + LL \u2197'  # higher highs dominate → bullish
     elif hl == 'HH':                trend_label = 'HH only \u2197'
     elif ll == 'LL':                trend_label = 'LL only \u2198'
     else:                           trend_label = 'Sideways \u2194'
@@ -149,8 +157,8 @@ def calculate_trend(pivots: list) -> str:
 
 
 def get_divergence_signal(trend1: str, trend2: str, name1: str, name2: str) -> str:
-    up   = {'HH + HL \u2197', 'HH only \u2197'}
-    down = {'LL + LH \u2198', 'LL only \u2198'}
+    up   = {'HH + HL \u2197', 'HH only \u2197', 'HH + LL \u2197'}
+    down = {'LL + LH \u2198', 'LL only \u2198', 'LH + HL \u2198'}
 
     if trend1 in up   and trend2 in down:
         return f"\u26a0\ufe0f BEARISH: {name1} HH+HL, {name2} LL+LH"
