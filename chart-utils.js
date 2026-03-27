@@ -162,6 +162,63 @@
   }
 
   // ---------------------------------------------------------------------------
+  // loadLastUpdated — fetches ./data/last_updated.txt and formats it
+  // ---------------------------------------------------------------------------
+  async function loadLastUpdated() {
+    try {
+      const r = await fetch('./data/last_updated.txt', { cache: 'no-store' });
+      if (!r.ok) return 'unknown';
+      const utcString = await r.text();
+      const utcDate = new Date(utcString.replace(' UTC', 'Z').replace(' ', 'T'));
+      return utcDate.toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true,
+      });
+    } catch (err) {
+      console.warn('Could not load last_updated.txt:', err.message);
+      return 'unknown';
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // last — return the last n elements of an array
+  // ---------------------------------------------------------------------------
+  function last(arr, n) {
+    return arr.slice(Math.max(0, arr.length - n));
+  }
+
+  // ---------------------------------------------------------------------------
+  // loadFredCsv — fetch a FRED CSV and return [{date, value}] points
+  // path: full path, e.g. './data/fred/T10Y2Y.csv'
+  // ---------------------------------------------------------------------------
+  async function loadFredCsv(path) {
+    const r = await fetch(path, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`Failed to fetch ${path}: ${r.status}`);
+    const text = await r.text();
+    const lines = text.trim().split(/\r?\n/);
+    lines.shift(); // remove header
+    const points = [];
+    for (const line of lines) {
+      const [date, value] = line.split(',');
+      if (!date || !value || date === 'Date') continue;
+      const v = parseFloat(value);
+      if (!isFinite(v)) continue;
+      points.push({ date, value: v });
+    }
+    return points; // [{ date: 'YYYY-MM-DD', value: float }, ...]
+  }
+
+  // ---------------------------------------------------------------------------
+  // computePercentile — % of points in windowDays that are below currentValue
+  // points: [{date, value}], currentValue: number, windowDays: number
+  // ---------------------------------------------------------------------------
+  function computePercentile(points, currentValue, windowDays) {
+    const window = points.slice(Math.max(0, points.length - windowDays));
+    const below = window.filter(p => p.value < currentValue).length;
+    return Math.round((below / window.length) * 100);
+  }
+
+  // ---------------------------------------------------------------------------
   // colors — single source of truth for all chart / signal colors
   // ---------------------------------------------------------------------------
   const colors = {
@@ -190,6 +247,11 @@
     signalStrongOff: '#ef4444',
   };
 
-  global.ChartUtils = { createDashboardChart, createFomcChart, fitWithRightPadding, fitWithDateRangePadding, addChartLegend, hexToRgba, colors };
+  global.ChartUtils = {
+    createDashboardChart, createFomcChart,
+    fitWithRightPadding, fitWithDateRangePadding,
+    addChartLegend, hexToRgba, colors,
+    loadLastUpdated, last, loadFredCsv, computePercentile,
+  };
 
 }(window));

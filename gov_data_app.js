@@ -27,25 +27,6 @@ async function loadConfig() {
   return config;
 }
 
-async function loadFredCsv(seriesId) {
-  const path = `./data/fred/${seriesId}.csv`;
-  const r = await fetch(path, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`Failed to fetch ${path}: ${r.status}`);
-  const text = await r.text();
-  const lines = text.trim().split(/\r?\n/);
-  lines.shift(); // remove header
-
-  const points = [];
-  for (const line of lines) {
-    const [date, value] = line.split(',');
-    if (!date || !value || date === 'Date') continue;
-    const v = parseFloat(value);
-    if (!isFinite(v)) continue;
-    points.push({ date, value: v });
-  }
-  return points; // [{ date: 'YYYY-MM-DD', value: float }, ...]
-}
-
 async function loadAllCsvs(categories) {
   const seriesMap = new Map();
   for (const cat of categories) {
@@ -58,7 +39,7 @@ async function loadAllCsvs(categories) {
   await Promise.all(
     Array.from(seriesMap.keys()).map(async (id) => {
       try {
-        results[id] = await loadFredCsv(id);
+        results[id] = await ChartUtils.loadFredCsv(`./data/fred/${id}.csv`);
       } catch (e) {
         console.warn(`Could not load ${id}: ${e.message}`);
         results[id] = null;
@@ -393,12 +374,6 @@ function scoreLabel(score) {
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-function rollingPercentile(points, windowSize, currentValue) {
-  const recent = points.slice(Math.max(0, points.length - windowSize));
-  const below = recent.filter(p => p.value < currentValue).length;
-  return Math.round((below / recent.length) * 100);
-}
-
 // Compute z-score of most recent MoM change vs ~1yr of MoM changes
 function computeMoMZScore(points, lookback) {
   if (!points || points.length < lookback + 2) return 0;
@@ -435,7 +410,7 @@ function scoreYieldCurve(t10y2yPts) {
 function scoreCreditStress(bamlPts) {
   if (!bamlPts || bamlPts.length < 2) return 50;
   const current = bamlPts[bamlPts.length - 1].value;
-  return rollingPercentile(bamlPts, 1260, current); // 5yr daily window
+  return ChartUtils.computePercentile(bamlPts, current, 1260); // 5yr daily window
 }
 
 function scoreEconomicMomentum(indproPts, rsafsPts) {
@@ -464,7 +439,7 @@ function scoreLaborMarket(payemsPts, unratePts) {
 
 function scoreFinancialConditions(vixPts, nfciPts) {
   const vixScore = vixPts && vixPts.length > 1
-    ? rollingPercentile(vixPts, 1260, vixPts[vixPts.length - 1].value)
+    ? ChartUtils.computePercentile(vixPts, vixPts[vixPts.length - 1].value, 1260)
     : 50;
 
   const nfciScore = nfciPts && nfciPts.length > 1
@@ -939,10 +914,10 @@ function renderNFCITab(panel) {
 
   // Fed composite score
   const creditPct = bamlPts.length > 1
-    ? rollingPercentile(bamlPts, 1260, bamlPts[bamlPts.length - 1].value) : 50;
+    ? ChartUtils.computePercentile(bamlPts, bamlPts[bamlPts.length - 1].value, 1260) : 50;
   const ycScore   = scoreYieldCurve(t10y2yPts);
   const vixPct    = vixPts.length > 1
-    ? rollingPercentile(vixPts, 1260, vixPts[vixPts.length - 1].value) : 50;
+    ? ChartUtils.computePercentile(vixPts, vixPts[vixPts.length - 1].value, 1260) : 50;
   const urScore   = unratePts.length > 1
     ? Math.round(clamp(50 + (unratePts[unratePts.length - 1].value - 4) * 8, 5, 95)) : 50;
   const fedScore  = Math.round(0.35 * creditPct + 0.30 * ycScore + 0.20 * vixPct + 0.15 * urScore);

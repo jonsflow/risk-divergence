@@ -19,25 +19,6 @@ let activeTab = 'overview';
 // UTILITIES
 // =============================================================================
 
-async function loadLastUpdated() {
-  try {
-    const r = await fetch('./data/last_updated.txt', { cache: "no-store" });
-    if (!r.ok) return "unknown";
-    const utcString = await r.text();
-    const utcDate = new Date(utcString.replace(' UTC', 'Z').replace(' ', 'T'));
-    return utcDate.toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: 'numeric', minute: '2-digit', hour12: true
-    });
-  } catch (err) {
-    return "unknown";
-  }
-}
-
-function last(arr, n) {
-  return arr.slice(Math.max(0, arr.length - n));
-}
-
 // =============================================================================
 // CONFIG LOADING
 // =============================================================================
@@ -63,7 +44,7 @@ function renderSparkline(svgEl, pts, maPoints, color) {
   const ch = H - PAD.top - PAD.bottom;
 
   // Use recent window for display
-  const recentPts = last(pts, LOOKBACK_DAYS);
+  const recentPts = ChartUtils.last(pts, LOOKBACK_DAYS);
   if (recentPts.length < 2) {
     svgEl.innerHTML = '';
     return;
@@ -145,7 +126,7 @@ function renderStackedSparkline(svgEl, assetsData) {
     .map((a, i) => ({
       symbol: a.symbol,
       color: STACKED_COLORS[i % STACKED_COLORS.length],
-      pts: last(a.price_points, LOOKBACK_DAYS),
+      pts: ChartUtils.last(a.price_points, LOOKBACK_DAYS),
     }))
     .filter(s => s.pts.length >= 2);
 
@@ -654,7 +635,7 @@ async function loadAndRender() {
     await loadConfig();
     buildTabUI(MACRO_CATEGORIES);
 
-    const lastUpdated = await loadLastUpdated();
+    const lastUpdated = await ChartUtils.loadLastUpdated();
     document.getElementById('meta').textContent = `Last updated: ${lastUpdated}`;
 
     await loadAndRender();

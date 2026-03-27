@@ -9,11 +9,19 @@ Divergence caches (45):   data/cache/divergence_{lookback}_{pivotMode}_{swing}.j
 Uses stdlib only (csv, json, pathlib, datetime) — no new dependencies.
 """
 
-import csv
 import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
+
+from cache_utils import (
+    TICKER_MAP,
+    last,
+    load_daily_csv,
+    calculate_ma,
+    find_pivot_highs,
+    find_pivot_lows,
+)
 
 DATA_DIR = Path("data")
 CACHE_DIR = DATA_DIR / "cache"
@@ -23,109 +31,12 @@ MA_PERIODS   = [20, 50, 100]
 PIVOT_MODES  = ["recent", "highest", "highest-to-current"]
 SWINGS       = [2, 3, 5, 7, 10]
 
-# Ticker overrides matching fetch_data.py
-TICKER_MAP = {
-    'BTC': 'BTC-USD',
-    'ETH': 'ETH-USD',
-    'VIX': '^VIX',
+# Breadth thresholds — loaded from config.json in main(), with fallbacks
+THRESHOLDS = {
+    'breadth_strong':   0.70,
+    'breadth_moderate': 0.50,
+    'breadth_weak':     0.30,
 }
-
-# =============================================================================
-# DATA LOADING
-# =============================================================================
-
-def load_daily_csv(symbol: str) -> list:
-    """Read data/{symbol}.csv, return [(timestamp_secs, close), ...]"""
-    path = DATA_DIR / f"{symbol.lower()}.csv"
-    if not path.exists():
-        return []
-
-    points = []
-    with open(path, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            date  = row.get('Date', '').strip()
-            close = row.get('Close', '').strip()
-            if not date or not close or date == 'Date' or close == 'Close':
-                continue
-            try:
-                t = int(datetime.strptime(date, '%Y-%m-%d')
-                        .replace(tzinfo=timezone.utc).timestamp())
-                c = float(close)
-                points.append((t, c))
-            except (ValueError, KeyError):
-                continue
-
-    points.sort(key=lambda x: x[0])
-    return points
-
-# =============================================================================
-# ANALYSIS: mirrors of app.js functions
-# =============================================================================
-
-def last(arr: list, n: int) -> list:
-    return arr[max(0, len(arr) - n):]
-
-
-def calculate_ma(points: list, period: int) -> list:
-    """Simple moving average. Returns [(timestamp, ma), ...]"""
-    ma_points = []
-    for i in range(period - 1, len(points)):
-        total = sum(points[j][1] for j in range(i - period + 1, i + 1))
-        ma_points.append((points[i][0], total / period))
-    return ma_points
-
-
-def find_pivot_highs(points: list, left_bars: int, right_bars: int) -> list:
-    """ThinkScript-style pivot detection. Returns [{idx, time, price}, ...]"""
-    pivot_highs = []
-    for i in range(1, len(points) - 1):
-        curr = points[i][1]
-        is_pivot = True
-
-        check_before = min(left_bars, i)
-        for j in range(1, check_before + 1):
-            if points[i - j][1] >= curr:
-                is_pivot = False
-                break
-
-        if is_pivot:
-            check_after = min(right_bars, len(points) - 1 - i)
-            for j in range(1, check_after + 1):
-                if points[i + j][1] >= curr:
-                    is_pivot = False
-                    break
-
-        if is_pivot:
-            pivot_highs.append({'idx': i, 'time': points[i][0], 'price': points[i][1]})
-
-    return pivot_highs
-
-
-def find_pivot_lows(points: list, left_bars: int, right_bars: int) -> list:
-    """Mirror of find_pivot_highs for local lows. Returns [{idx, time, price}, ...]"""
-    pivot_lows = []
-    for i in range(1, len(points) - 1):
-        curr = points[i][1]
-        is_pivot = True
-
-        check_before = min(left_bars, i)
-        for j in range(1, check_before + 1):
-            if points[i - j][1] <= curr:
-                is_pivot = False
-                break
-
-        if is_pivot:
-            check_after = min(right_bars, len(points) - 1 - i)
-            for j in range(1, check_after + 1):
-                if points[i + j][1] <= curr:
-                    is_pivot = False
-                    break
-
-        if is_pivot:
-            pivot_lows.append({'idx': i, 'time': points[i][0], 'price': points[i][1]})
-
-    return pivot_lows
 
 
 def classify_structure(points: list) -> tuple:
@@ -283,7 +194,7 @@ def derive_category_theme(cat_id: str, signals: dict) -> str:
         p = len(above & precious); e = len(above & energy)
         total = len([v for v in signals.values() if v is not None])
         pct   = len(above) / total if total else 0
-        if pct >= 0.70:        return 'Broad inflation bid'
+        if pct >= THRESHOLDS['breadth_strong']: return 'Broad inflation bid'
         if p >= 2 and e == 0:  return 'Precious metals bid'
         if e >= 1 and p == 0:  return 'Energy led'
         if not above:          return 'Broad weakness'
@@ -319,19 +230,19 @@ def derive_category_theme(cat_id: str, signals: dict) -> str:
         total = len([v for v in signals.values() if v is not None])
         pct   = len(above) / total if total else 0
         spy, iwm = signals.get('SPY'), signals.get('IWM')
-        if pct >= 0.70:                     return 'Broad strength'
-        if pct >= 0.50 and spy and not iwm: return 'Large-cap led'
-        if pct >= 0.50 and iwm and not spy: return 'Small-cap led'
-        if pct >= 0.50:                     return 'Moderate strength'
-        if pct <= 0.30:                     return 'Broad weakness'
+        if pct >= THRESHOLDS['breadth_strong']:                     return 'Broad strength'
+        if pct >= THRESHOLDS['breadth_moderate'] and spy and not iwm: return 'Large-cap led'
+        if pct >= THRESHOLDS['breadth_moderate'] and iwm and not spy: return 'Small-cap led'
+        if pct >= THRESHOLDS['breadth_moderate']:                     return 'Moderate strength'
+        if pct <= THRESHOLDS['breadth_weak']:                         return 'Broad weakness'
         return 'Mixed'
 
     else:
         total = len([v for v in signals.values() if v is not None])
         pct   = len(above) / total if total else 0
-        if pct >= 0.70: return 'Strong'
-        if pct >= 0.50: return 'Moderate'
-        if pct <= 0.30: return 'Weak'
+        if pct >= THRESHOLDS['breadth_strong']:   return 'Strong'
+        if pct >= THRESHOLDS['breadth_moderate']: return 'Moderate'
+        if pct <= THRESHOLDS['breadth_weak']:     return 'Weak'
         return 'Mixed'
 
 
@@ -605,6 +516,10 @@ def main():
         config = json.load(f)
     with open('macro_config.json', encoding='utf-8') as f:
         macro_config = json.load(f)
+
+    # Override module-level thresholds with values from config if present
+    global THRESHOLDS
+    THRESHOLDS.update(config.get('thresholds', {}))
 
     pairs      = config['pairs']
     symbols    = config['symbols']

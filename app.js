@@ -18,32 +18,6 @@ let SYMBOLS = [];
 // UTILITIES
 // =============================================================================
 
-async function loadLastUpdated() {
-  try {
-    const r = await fetch('./data/last_updated.txt', { cache: "no-store" });
-    if (!r.ok) return "unknown";
-
-    const utcString = await r.text();
-    const utcDate = new Date(utcString.replace(' UTC', 'Z').replace(' ', 'T'));
-
-    return utcDate.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  } catch (err) {
-    console.warn("Could not load last_updated.txt:", err.message);
-    return "unknown";
-  }
-}
-
-function last(arr, n) {
-  return arr.slice(Math.max(0, arr.length - n));
-}
-
 function fmt(x) {
   return Number.isFinite(x) ? x.toFixed(2) : "N/A";
 }
@@ -154,13 +128,6 @@ function calculateMA(points, period) {
 
 const { createChart, LineSeries, AreaSeries, CrosshairMode } = window.LightweightCharts;
 
-function hexToRgba(hex, alpha) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 function renderChartTV(containerId, points, color = "#4a9eff", label = "", swingHighs = null, ma50Points = null) {
   const container = document.getElementById(containerId);
   if (!container) {
@@ -197,8 +164,8 @@ function renderChartTV(containerId, points, color = "#4a9eff", label = "", swing
 
   const lineSeries = chart.addSeries(AreaSeries, {
     lineColor: color,
-    topColor: hexToRgba(color, 0.35),
-    bottomColor: hexToRgba(color, 0),
+    topColor: ChartUtils.hexToRgba(color, 0.35),
+    bottomColor: ChartUtils.hexToRgba(color, 0),
     lineWidth: 2,
     lastValueVisible: false,
     priceLineVisible: false,
@@ -255,11 +222,12 @@ function scorePair(t1, t2) {
 
 function trendSignalLabel(score, maxTotal) {
   const r = score / maxTotal;
-  if (r >= 0.67)  return { label: '🟢 STRONG RISK ON',  color: '#10b981' };
-  if (r >= 0.25)  return { label: '🟡 RISK ON',         color: '#84cc16' };
-  if (r >= -0.17) return { label: '⚪ NEUTRAL',          color: '#a7a7ad' };
-  if (r >= -0.58) return { label: '🟠 RISK OFF',         color: '#f59e0b' };
-  return           { label: '🔴 STRONG RISK OFF',        color: '#ef4444' };
+  const c = ChartUtils.colors;
+  if (r >= 0.67)  return { label: '🟢 STRONG RISK ON',  color: c.signalStrongOn };
+  if (r >= 0.25)  return { label: '🟡 RISK ON',         color: c.signalOn };
+  if (r >= -0.17) return { label: '⚪ NEUTRAL',          color: c.signalNeutral };
+  if (r >= -0.58) return { label: '🟠 RISK OFF',         color: c.signalOff };
+  return           { label: '🔴 STRONG RISK OFF',        color: c.signalStrongOff };
 }
 
 // =============================================================================
@@ -385,8 +353,8 @@ function applyDivergenceCache(cache) {
     const pts2 = dataCache[s2];
     if (!pts1 || !pts2 || pts1.length === 0 || pts2.length === 0) continue;
 
-    const recent1    = last(pts1, LOOKBACK_DAYS);
-    const recent2    = last(pts2, LOOKBACK_DAYS);
+    const recent1    = ChartUtils.last(pts1, LOOKBACK_DAYS);
+    const recent2    = ChartUtils.last(pts2, LOOKBACK_DAYS);
     const startTime1 = recent1[0][0];
     const startTime2 = recent2[0][0];
     const ma50_1     = calculateMA(pts1, 50).filter(p => p[0] >= startTime1);
@@ -426,7 +394,7 @@ async function loadAndRender() {
 
     renderPairColumns();
 
-    const lastUpdated = await loadLastUpdated();
+    const lastUpdated = await ChartUtils.loadLastUpdated();
     document.getElementById("meta").textContent = `Last updated: ${lastUpdated}`;
 
     await loadAndRender();

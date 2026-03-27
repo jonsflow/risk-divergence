@@ -63,5 +63,10 @@
     "lookback_days": 20,
     "pivot_mode": "recent",
     "swing_window_days": null
+  },
+  "thresholds": {
+    "breadth_strong":   0.70,
+    "breadth_moderate": 0.50,
+    "breadth_weak":     0.30
   }
 }

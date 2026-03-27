@@ -25,6 +25,8 @@ import math
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+from cache_utils import find_pivot_highs, find_pivot_lows
+
 DATA_DIR = Path("data")
 CACHE_DIR = DATA_DIR / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -297,50 +299,6 @@ def calculate_moving_average(points: list, period: int) -> list:
 
     return ma_values
 
-def _find_pivot_highs(scalar_points: list, left_bars: int, right_bars: int) -> list:
-    """
-    ThinkScript-style pivot high detection on [(timestamp, scalar), ...].
-    Returns [{'idx': int, 'time': int, 'price': float}, ...]
-    """
-    pivots = []
-    for i in range(1, len(scalar_points) - 1):
-        curr = scalar_points[i][1]
-        is_pivot = True
-        for j in range(1, min(left_bars, i) + 1):
-            if scalar_points[i - j][1] >= curr:
-                is_pivot = False
-                break
-        if is_pivot:
-            for j in range(1, min(right_bars, len(scalar_points) - 1 - i) + 1):
-                if scalar_points[i + j][1] >= curr:
-                    is_pivot = False
-                    break
-        if is_pivot:
-            pivots.append({'idx': i, 'time': scalar_points[i][0], 'price': curr})
-    return pivots
-
-
-def _find_pivot_lows(scalar_points: list, left_bars: int, right_bars: int) -> list:
-    """
-    ThinkScript-style pivot low detection on [(timestamp, scalar), ...].
-    Returns [{'idx': int, 'time': int, 'price': float}, ...]
-    """
-    pivots = []
-    for i in range(1, len(scalar_points) - 1):
-        curr = scalar_points[i][1]
-        is_pivot = True
-        for j in range(1, min(left_bars, i) + 1):
-            if scalar_points[i - j][1] <= curr:
-                is_pivot = False
-                break
-        if is_pivot:
-            for j in range(1, min(right_bars, len(scalar_points) - 1 - i) + 1):
-                if scalar_points[i + j][1] <= curr:
-                    is_pivot = False
-                    break
-        if is_pivot:
-            pivots.append({'idx': i, 'time': scalar_points[i][0], 'price': curr})
-    return pivots
 
 
 def calculate_vwap(hourly_points: list) -> dict:
@@ -416,14 +374,14 @@ def calculate_rsi_divergence(hourly_points: list, swing: int = 3) -> dict:
     bullish_div = False
 
     # Bearish: price HH, RSI LH — look at last 2 pivot highs
-    price_highs = _find_pivot_highs(valid_closes, swing, swing)
+    price_highs = find_pivot_highs(valid_closes, swing, swing)
     if len(price_highs) >= 2:
         ph1, ph2 = price_highs[-2], price_highs[-1]
         if ph2['price'] > ph1['price'] and rsi_at(ph2['time']) < rsi_at(ph1['time']):
             bearish_div = True
 
     # Bullish: price LL, RSI HL — look at last 2 pivot lows
-    price_lows = _find_pivot_lows(valid_closes, swing, swing)
+    price_lows = find_pivot_lows(valid_closes, swing, swing)
     if len(price_lows) >= 2:
         pl1, pl2 = price_lows[-2], price_lows[-1]
         if pl2['price'] < pl1['price'] and rsi_at(pl2['time']) > rsi_at(pl1['time']):

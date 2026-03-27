@@ -15,24 +15,6 @@ const { LineSeries, AreaSeries } = window.LightweightCharts;
 // DATA LOADING
 // =============================================================================
 
-async function loadFredCsv(path) {
-  const r = await fetch(path, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`Failed to fetch ${path}: ${r.status}`);
-  const text = await r.text();
-  const lines = text.trim().split(/\r?\n/);
-  lines.shift(); // remove header
-
-  const points = [];
-  for (const line of lines) {
-    const [date, value] = line.split(',');
-    if (!date || !value || date === 'Date') continue;
-    const v = parseFloat(value);
-    if (!isFinite(v)) continue;
-    points.push({ date, value: v });
-  }
-  return points; // [{ date: 'YYYY-MM-DD', value: float }, ...]
-}
-
 // =============================================================================
 // ANALYSIS
 // =============================================================================
@@ -45,13 +27,6 @@ function computeMA(points, period) {
     result.push({ date: points[i].date, value: sum / period });
   }
   return result;
-}
-
-function computePercentile(points, currentValue, windowDays) {
-  // Use the last windowDays points as the reference distribution
-  const window = points.slice(Math.max(0, points.length - windowDays));
-  const below = window.filter(p => p.value < currentValue).length;
-  return Math.round((below / window.length) * 100);
 }
 
 function levelScore(percentile) {
@@ -139,7 +114,7 @@ function applySignal(points) {
   const maPoints   = computeMA(points, MA_PERIOD);
   const current    = points[points.length - 1];
   const currentMa  = maPoints[maPoints.length - 1];
-  const percentile = computePercentile(points, current.value, WINDOW_DAYS);
+  const percentile = ChartUtils.computePercentile(points, current.value, WINDOW_DAYS);
   const lvl        = levelScore(percentile);
   const mom        = momentumScore(current.value, currentMa.value);
   const score      = lvl + mom;
@@ -178,7 +153,7 @@ function applySignal(points) {
 let allPoints = [];
 
 async function loadAndRender() {
-  allPoints = await loadFredCsv(CSV_PATH);
+  allPoints = await ChartUtils.loadFredCsv(CSV_PATH);
   applySignal(allPoints);
 }
 

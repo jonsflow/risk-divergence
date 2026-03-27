@@ -16,24 +16,6 @@ const fomcCharts = new Map();
 // DATA LOADING
 // =============================================================================
 
-async function loadFredCsv(seriesId) {
-  const path = `./data/fred/${seriesId}.csv`;
-  const r = await fetch(path, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`Failed to fetch ${path}: ${r.status}`);
-  const text = await r.text();
-  const lines = text.trim().split(/\r?\n/);
-  lines.shift();
-  const points = [];
-  for (const line of lines) {
-    const [date, value] = line.split(',');
-    if (!date || !value || date === 'Date') continue;
-    const v = parseFloat(value);
-    if (!isFinite(v)) continue;
-    points.push({ date, value: v });
-  }
-  return points;
-}
-
 async function loadFomcData() {
   // Try bundle first — contains ALL fred series including FEDFUNDS
   try {
@@ -56,7 +38,7 @@ async function loadFomcData() {
   await Promise.all(
     FOMC_SERIES.map(async (id) => {
       try {
-        results[id] = await loadFredCsv(id);
+        results[id] = await ChartUtils.loadFredCsv(`./data/fred/${id}.csv`);
       } catch (err) {
         console.warn(`Could not load ${id}: ${err.message}`);
         results[id] = null;

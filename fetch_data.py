@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 
+from cache_utils import TICKER_MAP as _SHARED_TICKER_MAP
+
 def load_config():
     """Load configuration from config.json"""
     config_path = Path('config.json')
@@ -50,17 +52,7 @@ def get_symbols_from_config(config):
     return symbols, ticker_map
 
 def get_symbols_from_macro_config(macro_config):
-    """Extract unique symbols and ticker mappings from macro_config.json categories.
-
-    macro_config.json only stores symbol names, not ticker overrides, so we
-    need a hardcoded map for the symbols that require a non-standard Yahoo ticker.
-    """
-    MACRO_TICKER_MAP = {
-        'BTC': 'BTC-USD',
-        'ETH': 'ETH-USD',
-        'VIX': '^VIX',
-    }
-
+    """Extract unique symbols and ticker mappings from macro_config.json categories."""
     seen = set()
     symbols = []
     ticker_map = {}
@@ -71,7 +63,7 @@ def get_symbols_from_macro_config(macro_config):
             if symbol not in seen:
                 seen.add(symbol)
                 symbols.append(symbol)
-                ticker = MACRO_TICKER_MAP.get(symbol, symbol)
+                ticker = _SHARED_TICKER_MAP.get(symbol, symbol)
                 if ticker != symbol:
                     ticker_map[symbol] = ticker
 
