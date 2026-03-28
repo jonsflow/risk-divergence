@@ -13,9 +13,11 @@ DATA_DIR = Path("data")
 # Ticker overrides for symbols whose Yahoo Finance ticker differs from the symbol name.
 # Used by generate_cache.py and fetch_data.py (as MACRO_TICKER_MAP).
 TICKER_MAP = {
-    'BTC': 'BTC-USD',
-    'ETH': 'ETH-USD',
-    'VIX': '^VIX',
+    'BTC':    'BTC-USD',
+    'ETH':    'ETH-USD',
+    'VIX':    '^VIX',
+    'USDJPY': 'USDJPY=X',
+    'AUDUSD': 'AUDUSD=X',
 }
 
 

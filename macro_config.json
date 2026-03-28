@@ -100,5 +100,6 @@
         {"symbol": "ETH", "name": "Ethereum"}
       ]
     }
-  ]
+  ],
+  "regime_signals": ["USDJPY"]
 }

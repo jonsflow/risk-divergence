@@ -60,7 +60,7 @@
     }
   ],
   "defaults": {
-    "lookback_days": 20,
+    "lookback_days": 50,
     "pivot_mode": "recent",
     "swing_window_days": null
   },
