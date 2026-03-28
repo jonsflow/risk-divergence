@@ -141,7 +141,7 @@ function applySignal(points) {
   pctEl.textContent = `${percentile}th`;
   pctEl.style.color = color;
   document.getElementById('percentile-context').textContent =
-    `vs ${windowLabel} history · ${lvl >= 1 ? 'tight (risk-on)' : 'wide (risk-off)'}`;
+    `Spreads tighter than today ${percentile}% of the past ${windowLabel}`;
 
   renderChart(points, maPoints, HISTORY_DAYS);
 }
