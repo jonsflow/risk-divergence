@@ -224,11 +224,11 @@ function renderDayQuality() {
         <span>${scoreDots(gapRange.score ?? 0)}</span>
       </div>
       <span style="font-weight:bold; color:${scoreColor(gapRange.score ?? 0)}; font-size:1.1em;">
-        ${gapRange.score === 2 ? 'Both' : gapRange.score === 1 ? 'One' : 'Neither'}
+        ${gapRange.score ?? 0}/2
       </span>
       <div class="muted" style="font-size:0.8em; margin-top:4px;">
         ${gapRange.gap_pts != null
-          ? `Gap $${gapRange.gap_pts} (${gapRange.gap_ratio}× med) · PM ${gapRange.pm_range_ratio != null ? gapRange.pm_range_ratio + '× avg' : '–'}`
+          ? `Gap $${gapRange.gap_pts} (${gapRange.gap_ratio}× 20d med) · PM ${gapRange.pm_range_ratio != null ? gapRange.pm_range_ratio + '× 20d avg' : '–'}`
           : noDataMsg}
       </div>
     </div>
@@ -259,7 +259,7 @@ function renderDayQuality() {
 
     <div class="pill">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-        <div class="muted">Index Alignment</div>
+        <div class="muted">Index Alignment <span style="font-size:0.85em;">(today's session)</span></div>
         <span>${scoreDots(alignScore.score ?? 0)}</span>
       </div>
       <span style="font-weight:bold; color:${scoreColor(alignScore.score ?? 0)}; font-size:1.1em;">
@@ -765,7 +765,7 @@ function renderEodOutcomes(scored) {
 
   let dqBody = spyCloseRow + `<div class="metric-grid">
     ${pill('Day Grade',   `${grade} (${scores.total ?? '–'}/${scores.max ?? 8})`, gradeColor, gradeLabel)}
-    ${pill('Gap+PM Range', scores.gap_range?.score != null ? ['Neither','One','Both'][scores.gap_range.score] : '–', scoreColor(scores.gap_range?.score ?? 0), null)}
+    ${pill('Gap+PM Range', scores.gap_range?.score != null ? `${scores.gap_range.score}/2` : '–', scoreColor(scores.gap_range?.score ?? 0), null)}
     ${pill('Structure',   scores.structure?.regime ?? '–', scoreColor(scores.structure?.score ?? 0), null)}
     ${pill('Alignment',   scores.alignment?.score === 2 ? 'Aligned' : scores.alignment?.score === 1 ? 'Partial' : 'Diverging', scoreColor(scores.alignment?.score ?? 0), null)}
   </div>`;

@@ -38,11 +38,11 @@ jobs:
           git config user.email "github-actions@github.com"
           git pull --rebase origin main
 
-      - name: Fetch latest daily data
-        run: python3 scripts/fetch_data.py
-
-      - name: Seed SQLite from existing CSVs
+      - name: Seed SQLite from existing CSVs (idempotent)
         run: python3 -m pipeline.run seed
+
+      - name: Fetch latest Yahoo data (daily + hourly + 5m for trading-9)
+        run: python3 -m pipeline.run fetch
 
       - name: Run backfill
         run: |
