@@ -10,9 +10,8 @@ Usage:
 Requires SQLite to be seeded first: python3 -m pipeline.run seed
 """
 import argparse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-import csv
 
 DATA_DIR = Path("data")
 CACHE_DIR = DATA_DIR / "cache"
@@ -20,14 +19,15 @@ CACHE_DIR = DATA_DIR / "cache"
 
 MAX_BACKFILL_YEARS = 5
 
-def get_backfill_date_range(lookback_days=90):
-    """Return (start_date, end_date) for backfill — latest date from daily CSV, lookback_days back.
-    Hard cap: never go further back than MAX_BACKFILL_YEARS years."""
-    path = DATA_DIR / "spy.csv"
-    with open(path) as f:
-        rows = list(csv.DictReader(f))
-    dates = sorted(set(r['Date'] for r in rows if r.get('Date')))
-    end   = date.fromisoformat(dates[-1])
+def get_backfill_date_range(db, lookback_days=90):
+    """Return (start_date, end_date) for backfill — latest SPY daily bar date
+    in SQLite, lookback_days back. Hard cap: never go further back than
+    MAX_BACKFILL_YEARS years. Uses SQLite because the workflow no longer
+    mirrors daily fetches to data/spy.csv."""
+    last_ts = db.last_daily_timestamp('SPY')
+    if last_ts is None:
+        raise RuntimeError("No SPY daily bars in SQLite — run `pipeline.run seed` and/or `pipeline.run fetch` first.")
+    end   = datetime.fromtimestamp(last_ts, tz=timezone.utc).date()
     start = end - timedelta(days=lookback_days)
     earliest = end.replace(year=end.year - MAX_BACKFILL_YEARS)
     return max(start, earliest), end
@@ -55,7 +55,7 @@ def main():
     db = DBManager()
     generator = TradingGenerator(db, cache_dir=CACHE_DIR)
 
-    start, end = get_backfill_date_range(lookback_days=args.days)
+    start, end = get_backfill_date_range(db, lookback_days=args.days)
     print(f"Backfilling {start} → {end}{' (force)' if args.force else ''}")
     skipped = generated = 0
     for d in weekdays_in_range(start, end):
