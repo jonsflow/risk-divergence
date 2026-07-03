@@ -359,12 +359,18 @@ def _load_vix() -> dict:
             'ratio': round(current / avg_20d, 2) if avg_20d else None}
 
 
-def _compute_alignment_score(regime_symbols, hourly_data) -> tuple:
+def _compute_alignment_score(regime_symbols, hourly_data, target_date) -> tuple:
+    """Score whether the regime symbols (SPY/QQQ/IWM) moved the same direction
+    today. Uses today's RTH session bars only — before this filter the function
+    took the first→last bar of the whole ~30-day hourly window and reported
+    the monthly trend, which is not what "today's index alignment" means.
+    """
     directions = {}
     for sym in regime_symbols:
         h = hourly_data.get(sym, [])
-        if len(h) >= 2:
-            chg = (h[-1][1]['close'] - h[0][1]['close']) / h[0][1]['close']
+        session = _get_session_bars(h, 930, 1600, target_date=target_date) if h else []
+        if len(session) >= 2:
+            chg = (session[-1][1]['close'] - session[0][1]['close']) / session[0][1]['close']
             directions[sym] = 'up' if chg > 0.005 else 'down' if chg < -0.005 else 'flat'
     non_flat = [d for d in directions.values() if d != 'flat']
     if not non_flat:
@@ -661,7 +667,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
     output['regime'] = _detect_regime(regime_symbols, daily_data, hourly_data)
     output['vix']    = _load_vix()
 
-    _align_score, _align_detail = _compute_alignment_score(regime_symbols, hourly_data)
+    _align_score, _align_detail = _compute_alignment_score(regime_symbols, hourly_data, spy_date)
 
     for symbol in symbols:
         points = daily_data.get(symbol, [])
