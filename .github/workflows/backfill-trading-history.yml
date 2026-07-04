@@ -45,6 +45,8 @@ jobs:
         run: python3 -m pipeline.run fetch
 
       - name: Run backfill
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           ARGS="--days ${{ github.event.inputs.days }}"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
