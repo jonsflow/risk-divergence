@@ -2,8 +2,12 @@
 pipeline/generators/trading_generator.py — Trading signals cache generator.
 
 Replaces generate_trading_cache.py.
-Reads OHLCV from SQLite; writes data/cache/postmarket_signals.json (EOD)
-or data/cache/premarket_signals.json (premarket), depending on phase.
+Reads OHLCV from SQLite; writes data/cache/trading_signals.json.
+The premarket (9 AM ET) run and post-close (4:15 PM ET) run both write to
+this same file — premarket writes a checklist-only snapshot (ORB/opening-range/
+EOD-outcome fields empty, since the RTH session hasn't happened yet), which
+post-close overwrites with the full computation. Consumers must treat empty
+eod_outcome / null opening_range as "not available yet," not an error.
 
 All computation logic is ported verbatim from generate_trading_cache.py.
 """
@@ -942,14 +946,16 @@ def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
                 'outcome': {'next_day': True, 'note': f"Enter {'above' if is_up else 'below'} ${entry:.2f} next session"},
             })
 
-    # The premarket (9 AM) run and the post-close (4:15 PM) run write to
-    # entirely separate files and never read or reference each other's output.
-    # Premarket → premarket_signals.json; post-close → postmarket_signals.json.
+    # Premarket (9 AM) and post-close (4:15 PM) both write the same canonical
+    # trading_signals.json — post-close overwrites the premarket-only checklist
+    # snapshot with the full computation once RTH data exists. Dated history
+    # files are EOD-only; premarket data isn't preserved historically since
+    # it can't be reconstructed after the fact from daily OHLCV.
     if is_premarket:
-        pm_path = cache_dir / 'premarket_signals.json'
-        with open(pm_path, 'w') as f:
+        canon = cache_dir / 'trading_signals.json'
+        with open(canon, 'w') as f:
             json.dump(output, f, indent=2)
-        print(f"✓ Premarket → {pm_path}")
+        print(f"✓ Premarket → {canon}")
         return
 
     spy_pts  = daily_data.get('SPY', [])
@@ -961,7 +967,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
     print(f"✓ {len(output['symbols'])} symbols, {len(output['active_patterns'])} patterns → {dated_path}")
 
     if target_date is None:
-        canon = cache_dir / 'postmarket_signals.json'
+        canon = cache_dir / 'trading_signals.json'
         with open(canon, 'w') as f:
             json.dump(output, f, indent=2)
         print(f"✓ Canonical → {canon}")

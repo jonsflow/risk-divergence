@@ -119,7 +119,7 @@ FRED API ──────┘                     ├─► data/*.csv (mirrore
 ├── data/
 │   ├── *.csv                   # Yahoo daily OHLCV (max history)
 │   ├── *_hourly.csv            # Yahoo 1h OHLCV (~1 month rolling)
-│   ├── cache/                  # Generator outputs (divergence_*, macro_*, postmarket_signals.json, premarket_signals.json, ...)
+│   ├── cache/                  # Generator outputs (divergence_*, macro_*, trading_signals.json, ...)
 │   └── fred/                   # FRED series CSVs (Date,Value)
 ├── docs/                       # Technical documentation
 └── .github/workflows/

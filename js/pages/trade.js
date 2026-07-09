@@ -2,23 +2,16 @@
 import { renderNav } from '../components/Navigation.js';
 
 let cacheData      = null;
-let premarketData  = null;
 let scoredTrades   = null;
 let latestDate     = null;
 let selectedSymbol = 'SPY';
 
-// Only "today" has a premarket cache — no dated history file exists for it.
-async function loadPremarketData(dateStr) {
-  if (dateStr !== latestDate && dateStr) {
-    premarketData = null;
-    return;
-  }
-  try {
-    const response = await fetch('data/cache/premarket_signals.json');
-    premarketData = response.ok ? await response.json() : null;
-  } catch {
-    premarketData = null;
-  }
+// Premarket runs write eod_outcome: {} / opening_range: null (RTH hasn't happened
+// yet) — post-close overwrites with the full computation. Steps 2-6 need to check
+// for this rather than assume the full shape is always present.
+function isEodReady() {
+  const spy = cacheData.symbols?.SPY || {};
+  return Object.keys(spy.eod_outcome || {}).length > 0;
 }
 
 function todayET() {
@@ -69,25 +62,23 @@ function switchTradeTab(tab) {
 // =============================================================================
 
 function renderHeader() {
-  const src = premarketData || cacheData;
-
-  const gen    = new Date(src.generated);
+  const gen    = new Date(cacheData.generated);
   const genStr = gen.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  const grade      = src.day_quality.grade;
-  const gradeColor = src.market_closed ? '#6b7280'
+  const grade      = cacheData.day_quality.grade;
+  const gradeColor = cacheData.market_closed ? '#6b7280'
     : (grade === 'A+' || grade === 'A') ? '#10b981'
     : grade === 'B' ? '#f59e0b' : '#ef4444';
-  const gradeLabel = src.market_closed ? 'Market Closed'
+  const gradeLabel = cacheData.market_closed ? 'Market Closed'
     : grade === 'A+' ? 'Strong'
     : grade === 'A'  ? 'Favorable'
     : grade === 'B'  ? 'Selective' : 'Sit Out';
 
   document.getElementById('headerMeta').textContent = `as of ${genStr}`;
   document.getElementById('dayQualityBadge').innerHTML =
-    `<span style="background: ${gradeColor}; color: white; padding: 8px 16px; border-radius: 6px; display: inline-block;">${src.market_closed ? 'Weekend' : grade} — ${gradeLabel}</span>`;
+    `<span style="background: ${gradeColor}; color: white; padding: 8px 16px; border-radius: 6px; display: inline-block;">${cacheData.market_closed ? 'Weekend' : grade} — ${gradeLabel}</span>`;
 
-  const w = src.windows || {};
+  const w = cacheData.windows || {};
   const fmtWindow = (win) => {
     if (!win?.from) return null;
     return win.from === win.to ? `${win.from} ET` : `${win.from}–${win.to} ET`;
@@ -118,12 +109,11 @@ function renderHeader() {
 // =============================================================================
 
 function renderDayQuality() {
-  const src = premarketData || cacheData;
-  const grade     = src.day_quality.grade;
-  const scores    = src.day_quality.scores || {};
-  const volRegime = src.vol_regime || {};
+  const grade     = cacheData.day_quality.grade;
+  const scores    = cacheData.day_quality.scores || {};
+  const volRegime = cacheData.vol_regime || {};
 
-  if (src.market_closed) {
+  if (cacheData.market_closed) {
     document.getElementById('step1Content').innerHTML = `
       <div style="background: #1e2330; border-left: 4px solid #6b7280; padding: 12px; border-radius: 4px;">
         <strong style="color: #9ca3af;">Market Closed — Weekend</strong><br>
@@ -158,7 +148,7 @@ function renderDayQuality() {
   let html = '';
 
   // --- SPY price + overnight range chart (Step 1 always shows SPY) ---
-  const spyD  = src.symbols['SPY'] || {};
+  const spyD  = cacheData.symbols['SPY'] || {};
   const pmD   = spyD.premarket || {};
   const prX   = gapRange.prior_close;
   const eoX   = gapRange.est_open;
@@ -223,7 +213,7 @@ function renderDayQuality() {
   </div>`;
 
   // VIX context row
-  const vix = src.vix || {};
+  const vix = cacheData.vix || {};
   if (vix.current != null) {
     const vixColor = vix.ratio > 1.2 ? '#ef4444' : vix.ratio > 1.0 ? '#f59e0b' : '#10b981';
     const vixLabel = vix.ratio > 1.2 ? 'Elevated' : vix.ratio > 1.0 ? 'Above avg' : 'Below avg';
@@ -291,7 +281,7 @@ function renderDayQuality() {
   </div>`;
 
   // ADR pill — SPY only, shows 20-day average daily range vs yesterday's actual range
-  const spySym   = src.symbols['SPY'] || {};
+  const spySym   = cacheData.symbols['SPY'] || {};
   const adr20    = spySym.adr_20d;
   const adr8     = spySym.adr_8d;
   const prevRng  = spySym.prev_range;
@@ -1094,6 +1084,17 @@ function renderAll() {
     return;
   }
 
+  if (!isEodReady()) {
+    ['step-2','step-3','step-4','step-5','step-6'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById('step1Content').insertAdjacentHTML('beforeend',
+      `<div class="muted" style="margin-top:12px; font-size:0.85em;">
+        Steps 2-6 (ORB, opening range, EOD outcomes) available after the post-close report — check back after 4:15 PM ET.
+      </div>`);
+    return;
+  }
+
   renderRegime();
   renderPatternScanner();
   const scored = scoreConfluences();
@@ -1123,7 +1124,7 @@ async function loadAndRender(dateStr) {
   }
 
   const url = (dateStr === latestDate || !dateStr)
-    ? 'data/cache/postmarket_signals.json'
+    ? 'data/cache/trading_signals.json'
     : `data/cache/trading_signals_${dateStr}.json`;
 
   const response = await fetch(url);
@@ -1138,7 +1139,6 @@ async function loadAndRender(dateStr) {
     throw new Error(`Failed to fetch: ${response.status}`);
   }
   cacheData = await response.json();
-  await loadPremarketData(dateStr);
   renderAll();
 }
 
@@ -1155,7 +1155,7 @@ async function init() {
   });
 
   try {
-    const response = await fetch('data/cache/postmarket_signals.json');
+    const response = await fetch('data/cache/trading_signals.json');
     if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
     cacheData = await response.json();
 
@@ -1204,7 +1204,6 @@ async function init() {
     if (isWeekend(today)) {
       renderWeekend(today);
     } else if (today === latestDate) {
-      await loadPremarketData(today);
       renderAll();
     } else {
       await loadAndRender(today);

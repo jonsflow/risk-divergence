@@ -10,7 +10,7 @@ Risk Model is a static GitHub Pages site with eight pages covering divergence si
 |------|------|-------------|----------|
 | Divergence | `index.html` / `js/pages/divergence.js` | Yahoo Finance CSVs + cache JSON | Python (`generate_cache.py`) |
 | Macro Model | `pages/macro.html` / `js/pages/macro.js` | Yahoo Finance CSVs + cache JSON | Python (`generate_cache.py`) |
-| Trade | `pages/trade.html` / `js/pages/trade.js` | postmarket_signals.json / premarket_signals.json cache | Python (`pipeline/generators/trading_generator.py`) |
+| Trade | `pages/trade.html` / `js/pages/trade.js` | trading_signals.json cache | Python (`pipeline/generators/trading_generator.py`) |
 | Credit Spread | `pages/credit.html` / `js/pages/credit.js` | FRED CSV (`BAMLH0A0HYM2`) | Client-side JS |
 | Gov Data | `pages/gov_data.html` / `js/pages/gov_data.js` | FRED CSVs (`data/fred/`) | Client-side JS |
 | FOMC | `pages/fomc.html` / `js/pages/fomc.js` | FRED CSVs (`data/fred/`) | Client-side JS |
@@ -36,7 +36,7 @@ Steps:
 
 | Generator | Output |
 |---|---|
-| `pipeline/generators/trading_generator.py` | `postmarket_signals.json` (EOD) + `premarket_signals.json` (premarket) + dated history files |
+| `pipeline/generators/trading_generator.py` | `trading_signals.json` + dated history files |
 | `pipeline/generators/divergence_generator.py` | `divergence_*.json` |
 | `pipeline/generators/macro_generator.py` | `macro_*.json` |
 | `pipeline/generators/correlation_generator.py` | `correlation_*.json` |
@@ -109,8 +109,7 @@ python3 -m http.server 8000
 │   ├── cache/              # Precomputed JSON cache files
 │   │   ├── divergence_*.json
 │   │   ├── macro_*.json
-│   │   ├── postmarket_signals.json
-│   │   └── premarket_signals.json
+│   │   └── trading_signals.json
 │   └── fred/               # FRED series CSVs (Date,Value format)
 │       ├── BAMLH0A0HYM2.csv
 │       ├── T10Y2Y.csv, DGS10.csv, VIXCLS.csv, ...
