@@ -7,13 +7,46 @@ Reads config.json + macro_config.json to determine which symbols to fetch.
 
 import json
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yfinance as yf
 
+try:
+    from yfinance.exceptions import YFRateLimitError
+except ImportError:  # older yfinance
+    YFRateLimitError = None
+
 from pipeline.base_fetcher import BaseFetcher
 from pipeline.db_manager import DBManager
+
+# Yahoo intermittently rate-limits datacenter IPs (e.g. GitHub Actions runners),
+# often at the cookie/crumb handshake on the very first request. Retry with
+# exponential backoff so a transient 429 doesn't abort the whole run.
+_MAX_RETRIES = 5
+_BACKOFF_BASE_SEC = 10
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    if YFRateLimitError is not None and isinstance(exc, YFRateLimitError):
+        return True
+    msg = str(exc).lower()
+    return "too many requests" in msg or "rate limit" in msg
+
+
+def _history_with_retry(ticker, **kwargs):
+    """ticker.history(**kwargs) with backoff retries on Yahoo rate limiting."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return ticker.history(**kwargs)
+        except Exception as e:  # noqa: BLE001 — inspect message to classify
+            if not _is_rate_limit(e) or attempt == _MAX_RETRIES - 1:
+                raise
+            wait = _BACKOFF_BASE_SEC * (2 ** attempt)
+            print(f"    rate limited (attempt {attempt + 1}/{_MAX_RETRIES}); "
+                  f"backing off {wait}s...", file=sys.stderr)
+            time.sleep(wait)
 
 # Symbols whose Yahoo Finance ticker differs from the symbol name
 TICKER_MAP = {
@@ -111,9 +144,9 @@ class YahooFetcher(BaseFetcher):
         last_ts = self.db.last_daily_timestamp(symbol.upper())
         if last_ts:
             start_date = datetime.fromtimestamp(last_ts, tz=timezone.utc).strftime('%Y-%m-%d')
-            df = ticker.history(start=start_date, interval='1d')
+            df = _history_with_retry(ticker, start=start_date, interval='1d')
         else:
-            df = ticker.history(period='max', interval='1d')
+            df = _history_with_retry(ticker, period='max', interval='1d')
 
         if df.empty:
             print(f"    WARNING: no daily data for {symbol}", file=sys.stderr)
@@ -146,9 +179,9 @@ class YahooFetcher(BaseFetcher):
         last_ts = self.db.last_hourly_timestamp(symbol.upper())
         if last_ts:
             start_date = datetime.fromtimestamp(last_ts, tz=timezone.utc).strftime('%Y-%m-%d')
-            df = ticker.history(start=start_date, interval='1h', prepost=True)
+            df = _history_with_retry(ticker, start=start_date, interval='1h', prepost=True)
         else:
-            df = ticker.history(period='1mo', interval='1h', prepost=True)
+            df = _history_with_retry(ticker, period='1mo', interval='1h', prepost=True)
 
         if df.empty:
             print(f"    WARNING: no hourly data for {symbol}", file=sys.stderr)
@@ -180,9 +213,9 @@ class YahooFetcher(BaseFetcher):
         last_ts = self.db.last_5m_timestamp(symbol.upper())
         if last_ts:
             start_date = datetime.fromtimestamp(last_ts, tz=timezone.utc).strftime('%Y-%m-%d')
-            df = ticker.history(start=start_date, interval='5m', prepost=True)
+            df = _history_with_retry(ticker, start=start_date, interval='5m', prepost=True)
         else:
-            df = ticker.history(period='60d', interval='5m', prepost=True)
+            df = _history_with_retry(ticker, period='60d', interval='5m', prepost=True)
 
         if df.empty:
             print(f"    WARNING: no 5m data for {symbol}", file=sys.stderr)

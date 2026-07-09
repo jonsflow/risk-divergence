@@ -2,7 +2,8 @@
 pipeline/generators/trading_generator.py — Trading signals cache generator.
 
 Replaces generate_trading_cache.py.
-Reads OHLCV from SQLite; writes data/cache/trading_signals.json.
+Reads OHLCV from SQLite; writes data/cache/postmarket_signals.json (EOD)
+or data/cache/premarket_signals.json (premarket), depending on phase.
 
 All computation logic is ported verbatim from generate_trading_cache.py.
 """
@@ -10,7 +11,7 @@ All computation logic is ported verbatim from generate_trading_cache.py.
 import json
 import math
 import statistics
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -24,8 +25,10 @@ CACHE_DIR = Path("data/cache")
 
 
 class TradingGenerator(BaseGenerator):
+    phase = 'eod'
+
     def generate(self, target_date=None) -> None:
-        _generate_trading_signals(self.db, self.cache_dir, target_date)
+        _generate_trading_signals(self.db, self.cache_dir, target_date, phase=self.phase)
 
 
 # ------------------------------------------------------------------
@@ -146,6 +149,36 @@ def _get_session_bars(hourly_points, start_hhmm, end_hhmm, target_date=None):
             continue
         hhmm = dt.hour * 100 + dt.minute
         if start_hhmm <= hhmm < end_hhmm:
+            result.append((ts, ohlcv))
+    return result
+
+
+def _get_overnight_bars(bars, target_date):
+    """Bars from the prior trading day's 16:00 ET close through target_date 09:30 ET.
+    Walks back up to 7 calendar days to find the prior trading day, so this handles
+    weekends and holidays."""
+    if not bars or target_date is None:
+        return []
+    upper = datetime(target_date.year, target_date.month, target_date.day, 9, 30, tzinfo=_MARKET_TZ)
+    prior_date = None
+    for d in range(1, 8):
+        candidate = target_date - timedelta(days=d)
+        has_close_bars = any(
+            datetime.fromtimestamp(ts, tz=_MARKET_TZ).date() == candidate
+            and (datetime.fromtimestamp(ts, tz=_MARKET_TZ).hour * 100
+                 + datetime.fromtimestamp(ts, tz=_MARKET_TZ).minute) >= 1600
+            for ts, _ in bars
+        )
+        if has_close_bars:
+            prior_date = candidate
+            break
+    if prior_date is None:
+        return []
+    lower = datetime(prior_date.year, prior_date.month, prior_date.day, 16, 0, tzinfo=_MARKET_TZ)
+    result = []
+    for ts, ohlcv in bars:
+        dt = datetime.fromtimestamp(ts, tz=_MARKET_TZ)
+        if lower <= dt < upper:
             result.append((ts, ohlcv))
     return result
 
@@ -606,7 +639,10 @@ def _calculate_eod_outcomes(points, hourly_points, gap, atr_14):
     return result
 
 
-def _generate_trading_signals(db, cache_dir, target_date=None):
+def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
+    # premarket (9 AM ET) run: the RTH session hasn't happened, so ORB /
+    # opening-range / EOD outcomes are suppressed and computed only post-close.
+    is_premarket = phase == 'premarket'
     trading_symbols, regime_symbols, _ = _load_config()
     symbols = trading_symbols
     if not symbols:
@@ -664,6 +700,9 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
         'last_hour':     {'from': bar_time(lh_bars,   0),  'to': bar_time(lh_bars,   -1)},
     }
 
+    # Frontend uses this to fetch data/cache/intraday/{SYM}_{session_date}.json.
+    output['session_date'] = spy_date.isoformat() if spy_date else None
+
     output['regime'] = _detect_regime(regime_symbols, daily_data, hourly_data)
     output['vix']    = _load_vix()
 
@@ -715,14 +754,19 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
 
         outside_day_dir = _detect_outside_day(points)
         outside_day     = outside_day_dir in ['up', 'down']
-        _orb_bars       = _get_session_bars(bars_5m, 930, 1030, target_date=today_date) if bars_5m else []
-        opening_range   = (max(b[1]['high'] for b in _orb_bars) - min(b[1]['low'] for b in _orb_bars)) if _orb_bars else 0.0
-        orb_qualified   = opening_range > 0.75 * atr_20day_avg if atr_20day_avg else False
+        if is_premarket:
+            opening_range = None
+            orb_qualified = None
+            eod_outcome   = {}
+        else:
+            _orb_bars     = _get_session_bars(bars_5m, 930, 1030, target_date=today_date) if bars_5m else []
+            opening_range = (max(b[1]['high'] for b in _orb_bars) - min(b[1]['low'] for b in _orb_bars)) if _orb_bars else 0.0
+            orb_qualified = opening_range > 0.75 * atr_20day_avg if atr_20day_avg else False
+            eod_outcome   = _calculate_eod_outcomes(points, bars_5m, gap, atr_current)
         engulfing       = _detect_engulfing(points, vol_20d_avg)
         squeeze         = _calculate_squeeze(hourly) if hourly else {'status': 'unknown', 'momentum': 0.0, 'momentum_increasing': False}
         vwap            = _calculate_vwap(bars_5m) if bars_5m else {'vwap': None, 'above_vwap': None, 'distance_pct': None}
         rsi_div         = _calculate_rsi_divergence(hourly) if hourly else {'signal': 'unknown', 'description': 'No hourly data'}
-        eod_outcome     = _calculate_eod_outcomes(points, bars_5m, gap, atr_current)
 
         # ADR: average daily range on prior complete bars only
         _prior = points[:-1]
@@ -789,8 +833,8 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
         }
 
         # Active patterns (same logic as original)
-        orb_has_levels = orb_qualified and opening_range > 0
-        orb_watch = (not orb_has_levels) and output['regime'].get('label') == 'Trending' and pm_range_active
+        orb_has_levels = (not is_premarket) and orb_qualified and (opening_range or 0) > 0
+        orb_watch = (not is_premarket) and (not orb_has_levels) and output['regime'].get('label') == 'Trending' and pm_range_active
 
         gap_pattern_name = gap_direction = gap_notes = gap_levels = None
         gap_continuation_hits = {}
@@ -898,6 +942,16 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                 'outcome': {'next_day': True, 'note': f"Enter {'above' if is_up else 'below'} ${entry:.2f} next session"},
             })
 
+    # The premarket (9 AM) run and the post-close (4:15 PM) run write to
+    # entirely separate files and never read or reference each other's output.
+    # Premarket → premarket_signals.json; post-close → postmarket_signals.json.
+    if is_premarket:
+        pm_path = cache_dir / 'premarket_signals.json'
+        with open(pm_path, 'w') as f:
+            json.dump(output, f, indent=2)
+        print(f"✓ Premarket → {pm_path}")
+        return
+
     spy_pts  = daily_data.get('SPY', [])
     data_date = datetime.fromtimestamp(spy_pts[-1][0], tz=timezone.utc).date() if spy_pts else now_utc.date()
 
@@ -907,10 +961,55 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
     print(f"✓ {len(output['symbols'])} symbols, {len(output['active_patterns'])} patterns → {dated_path}")
 
     if target_date is None:
-        canon = cache_dir / 'trading_signals.json'
+        canon = cache_dir / 'postmarket_signals.json'
         with open(canon, 'w') as f:
             json.dump(output, f, indent=2)
         print(f"✓ Canonical → {canon}")
+
+    _emit_intraday_bars(cache_dir, symbols, five_min_data, spy_date)
+
+
+def _emit_intraday_bars(cache_dir, symbols, five_min_data, session_date):
+    """Emit per-symbol 5m OHLCV for overnight (prior 16:00 ET → session 09:30 ET)
+    and RTH day session (09:30 ET → 16:00 ET) as data/cache/intraday/{SYM}_{DATE}.json."""
+    if session_date is None:
+        return
+    intraday_dir = cache_dir / 'intraday'
+    intraday_dir.mkdir(parents=True, exist_ok=True)
+
+    def _serialize(bar_list):
+        out = []
+        for ts, ohlcv in bar_list:
+            out.append({
+                'time':   ts,
+                'open':   round(ohlcv['open'],  4),
+                'high':   round(ohlcv['high'],  4),
+                'low':    round(ohlcv['low'],   4),
+                'close':  round(ohlcv['close'], 4),
+                'volume': int(ohlcv.get('volume') or 0),
+            })
+        return out
+
+    written = 0
+    for symbol in symbols:
+        bars = five_min_data.get(symbol) or []
+        if not bars:
+            continue
+        overnight = _get_overnight_bars(bars, session_date)
+        day       = _get_session_bars(bars, 930, 1600, target_date=session_date)
+        if not overnight and not day:
+            continue
+        payload = {
+            'symbol':    symbol,
+            'date':      session_date.isoformat(),
+            'overnight': _serialize(overnight),
+            'day':       _serialize(day),
+        }
+        path = intraday_dir / f"{symbol}_{session_date.isoformat()}.json"
+        with open(path, 'w') as f:
+            json.dump(payload, f, separators=(',', ':'))
+        written += 1
+    print(f"✓ Intraday bars → {intraday_dir} ({written} files for {session_date.isoformat()})")
 
 
 if __name__ == '__main__':

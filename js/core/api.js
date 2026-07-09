@@ -38,10 +38,17 @@ export function fetchMacro(lookback, maPeriod) {
 }
 
 /**
- * Fetch the trading signals cache.
+ * Fetch the post-close (EOD) trading signals cache.
  */
-export function fetchTradingSignals() {
-  return fetchCache('data/cache/trading_signals.json');
+export function fetchPostmarketSignals() {
+  return fetchCache('data/cache/postmarket_signals.json');
+}
+
+/**
+ * Fetch the premarket trading signals cache (Step 1 / morning checklist only).
+ */
+export function fetchPremarketSignals() {
+  return fetchCache('data/cache/premarket_signals.json');
 }
 
 /**

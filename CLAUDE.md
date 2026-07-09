@@ -10,7 +10,7 @@ Risk Model is a static GitHub Pages site with eight pages covering divergence si
 |------|------|-------------|----------|
 | Divergence | `index.html` / `js/pages/divergence.js` | Yahoo Finance CSVs + cache JSON | Python (`generate_cache.py`) |
 | Macro Model | `pages/macro.html` / `js/pages/macro.js` | Yahoo Finance CSVs + cache JSON | Python (`generate_cache.py`) |
-| Trade | `pages/trade.html` / `js/pages/trade.js` | trading_signals.json cache | Python (`pipeline/generators/trading_generator.py`) |
+| Trade | `pages/trade.html` / `js/pages/trade.js` | postmarket_signals.json / premarket_signals.json cache | Python (`pipeline/generators/trading_generator.py`) |
 | Credit Spread | `pages/credit.html` / `js/pages/credit.js` | FRED CSV (`BAMLH0A0HYM2`) | Client-side JS |
 | Gov Data | `pages/gov_data.html` / `js/pages/gov_data.js` | FRED CSVs (`data/fred/`) | Client-side JS |
 | FOMC | `pages/fomc.html` / `js/pages/fomc.js` | FRED CSVs (`data/fred/`) | Client-side JS |
@@ -22,7 +22,9 @@ Risk Model is a static GitHub Pages site with eight pages covering divergence si
 ### v2 SQLite Pipeline (active — all pages)
 
 Active workflow: `.github/workflows/update-data-v2.yml`
-Schedule: 14:00 UTC (pre-market) + 21:00 UTC (post-market) weekdays
+Schedule: **09:00 ET (pre-market) and 16:15 ET (post-close) every weekday, year-round.**
+
+GitHub Actions cron is UTC-only, so we schedule the two possible UTC times for each ET slot (13:00/14:00 UTC for 09:00 ET, 20:15/21:15 UTC for 16:15 ET) and gate the job on `TZ=America/New_York` wall time. The wrong-DST firings hit the gate step and no-op, so the workflow always does its two real runs at exactly 09:00 ET and 16:15 ET regardless of DST.
 
 Steps:
 1. `python3 -m pipeline.run seed` — seed SQLite from existing CSVs (idempotent)
@@ -34,7 +36,7 @@ Steps:
 
 | Generator | Output |
 |---|---|
-| `pipeline/generators/trading_generator.py` | `trading_signals.json` + dated history files |
+| `pipeline/generators/trading_generator.py` | `postmarket_signals.json` (EOD) + `premarket_signals.json` (premarket) + dated history files |
 | `pipeline/generators/divergence_generator.py` | `divergence_*.json` |
 | `pipeline/generators/macro_generator.py` | `macro_*.json` |
 | `pipeline/generators/correlation_generator.py` | `correlation_*.json` |
@@ -107,13 +109,14 @@ python3 -m http.server 8000
 │   ├── cache/              # Precomputed JSON cache files
 │   │   ├── divergence_*.json
 │   │   ├── macro_*.json
-│   │   └── trading_signals.json
+│   │   ├── postmarket_signals.json
+│   │   └── premarket_signals.json
 │   └── fred/               # FRED series CSVs (Date,Value format)
 │       ├── BAMLH0A0HYM2.csv
 │       ├── T10Y2Y.csv, DGS10.csv, VIXCLS.csv, ...
 │       └── (32 series total)
 └── .github/workflows/
-    ├── update-data-v2.yml      # active: 14:00 + 21:00 UTC weekdays
+    ├── update-data-v2.yml      # active: 09:00 + 16:15 ET weekdays (DST-aware, see Data Pipelines)
     └── backfill-trading-history.yml  # manual: regenerate historical dated cache files
 ```
 
@@ -148,7 +151,7 @@ Configurable via dropdowns: lookback (20/50/100d), pivot mode (recent/highest/hi
 
 - **Do not commit data files locally**: `data/*.csv`, `data/cache/*.json`, `data/fred/*.csv` are committed exclusively by the GitHub Actions workflow — do not stage or commit them from a dev environment.
 - **Only commit source files**: HTML, JS, Python, JSON configs, CSS, and workflow YAML.
-- The daily workflow at 21:00 UTC handles all data fetching, cache regeneration, and data commits automatically.
+- The daily workflow at 16:15 ET handles all data fetching, cache regeneration, and data commits automatically.
 
 ## Common Gotchas
 
@@ -157,5 +160,5 @@ Configurable via dropdowns: lookback (20/50/100d), pivot mode (recent/highest/hi
 3. **FRED key not found**: Ensure `.env` has `FRED_API_KEY=...` and `python-dotenv` is installed
 4. **Weekly change doubled**: `findPriorPoint` uses date-based lookback — daily=1, weekly=6, monthly=25 days
 5. **BTC has 24/7 data**: ~700 hourly bars vs ~143 for stocks
-6. **Workflow schedule**: two runs — 14:00 UTC (pre-market, 9 AM ET) and 21:00 UTC (post-market, 4 PM ET) weekdays
+6. **Workflow schedule**: two runs weekdays — 09:00 ET (pre-market) and 16:15 ET (post-close). DST-aware via 4 UTC crons + a wall-time gate step; see the Data Pipelines section.
 7. **Trading signal logic**: lives only in `pipeline/generators/trading_generator.py`. `scripts/generate_trading_cache.py` has been deleted. Always check the workflow YAML before editing any generator to confirm what actually runs in production.

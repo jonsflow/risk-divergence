@@ -2,9 +2,14 @@ name: Update market data v2 (SQLite pipeline)
 
 on:
   workflow_dispatch:
+  # Target ET times: 09:00 (pre-market) and 16:15 (post-close). GitHub cron is
+  # UTC-only with no DST support, so we schedule both possible UTC times for
+  # each ET slot and no-op the wrong one below.
   schedule:
-    - cron: "0 14 * * 1-5"  # 14:00 UTC weekdays (9 AM ET / 8 AM CT, pre-market)
-    - cron: "0 21 * * 1-5"  # 21:00 UTC weekdays (4 PM ET / 3 PM CT, post-market)
+    - cron: "0 13 * * 1-5"   # 09:00 ET during EDT
+    - cron: "0 14 * * 1-5"   # 09:00 ET during EST
+    - cron: "15 20 * * 1-5"  # 16:15 ET during EDT
+    - cron: "15 21 * * 1-5"  # 16:15 ET during EST
 
 permissions:
   contents: write
@@ -17,35 +22,71 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      # Manual dispatches always run. Scheduled runs only proceed when the
+      # America/New_York wall-clock time matches one of our two ET slots —
+      # this is how the four-cron schedule collapses back to two runs/day
+      # DST-aware.
+      - name: Gate on ET wall time
+        id: gate
+        run: |
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            echo "Manual dispatch — proceeding (eod phase)."
+            echo "proceed=true" >> $GITHUB_OUTPUT
+            echo "phase=eod" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          NOW_ET=$(TZ=America/New_York date +%H%M)
+          echo "Current ET: $NOW_ET"
+          if [[ "$NOW_ET" == "0900" ]]; then
+            echo "Pre-market ET slot — proceeding (premarket phase)."
+            echo "proceed=true" >> $GITHUB_OUTPUT
+            echo "phase=premarket" >> $GITHUB_OUTPUT
+          elif [[ "$NOW_ET" == "1615" ]]; then
+            echo "Post-close ET slot — proceeding (eod phase)."
+            echo "proceed=true" >> $GITHUB_OUTPUT
+            echo "phase=eod" >> $GITHUB_OUTPUT
+          else
+            echo "Not a targeted ET slot (09:00 or 16:15) — skipping."
+            echo "proceed=false" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.proceed == 'true'
 
       - name: Set up Python
+        if: steps.gate.outputs.proceed == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
+        if: steps.gate.outputs.proceed == 'true'
         run: pip install yfinance python-dotenv fredapi
 
       - name: Pull latest changes before modifying data
+        if: steps.gate.outputs.proceed == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git pull --rebase origin ${{ github.ref_name }}
 
       - name: Seed SQLite from existing CSVs
+        if: steps.gate.outputs.proceed == 'true'
         run: python3 -m pipeline.run seed
 
       - name: Fetch Yahoo Finance data → SQLite
+        if: steps.gate.outputs.proceed == 'true'
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python3 -m pipeline.run fetch
 
       - name: Generate all caches from SQLite
-        run: python3 -m pipeline.run generate
+        if: steps.gate.outputs.proceed == 'true'
+        run: python3 -m pipeline.run generate --phase ${{ steps.gate.outputs.phase }}
 
       - name: Commit and push cache data (if any)
+        if: steps.gate.outputs.proceed == 'true'
         run: |
-          git add data/cache/*.json data/fred/fred_cache.json data/last_updated.txt
+          git add data/cache/*.json data/cache/intraday/*.json data/fred/fred_cache.json data/last_updated.txt 2>/dev/null || true
           git diff --cached --quiet || git commit -m "chore: update caches (v2 pipeline)"
           git push
