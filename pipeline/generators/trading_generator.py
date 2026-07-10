@@ -29,10 +29,8 @@ CACHE_DIR = Path("data/cache")
 
 
 class TradingGenerator(BaseGenerator):
-    phase = 'eod'
-
     def generate(self, target_date=None) -> None:
-        _generate_trading_signals(self.db, self.cache_dir, target_date, phase=self.phase)
+        _generate_trading_signals(self.db, self.cache_dir, target_date)
 
 
 # ------------------------------------------------------------------
@@ -643,10 +641,7 @@ def _calculate_eod_outcomes(points, hourly_points, gap, atr_14):
     return result
 
 
-def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
-    # premarket (9 AM ET) run: the RTH session hasn't happened, so ORB /
-    # opening-range / EOD outcomes are suppressed and computed only post-close.
-    is_premarket = phase == 'premarket'
+def _generate_trading_signals(db, cache_dir, target_date=None):
     trading_symbols, regime_symbols, _ = _load_config()
     symbols = trading_symbols
     if not symbols:
@@ -758,15 +753,10 @@ def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
 
         outside_day_dir = _detect_outside_day(points)
         outside_day     = outside_day_dir in ['up', 'down']
-        if is_premarket:
-            opening_range = None
-            orb_qualified = None
-            eod_outcome   = {}
-        else:
-            _orb_bars     = _get_session_bars(bars_5m, 930, 1030, target_date=today_date) if bars_5m else []
-            opening_range = (max(b[1]['high'] for b in _orb_bars) - min(b[1]['low'] for b in _orb_bars)) if _orb_bars else 0.0
-            orb_qualified = opening_range > 0.75 * atr_20day_avg if atr_20day_avg else False
-            eod_outcome   = _calculate_eod_outcomes(points, bars_5m, gap, atr_current)
+        _orb_bars     = _get_session_bars(bars_5m, 930, 1030, target_date=today_date) if bars_5m else []
+        opening_range = (max(b[1]['high'] for b in _orb_bars) - min(b[1]['low'] for b in _orb_bars)) if _orb_bars else 0.0
+        orb_qualified = opening_range > 0.75 * atr_20day_avg if atr_20day_avg else False
+        eod_outcome   = _calculate_eod_outcomes(points, bars_5m, gap, atr_current)
         engulfing       = _detect_engulfing(points, vol_20d_avg)
         squeeze         = _calculate_squeeze(hourly) if hourly else {'status': 'unknown', 'momentum': 0.0, 'momentum_increasing': False}
         vwap            = _calculate_vwap(bars_5m) if bars_5m else {'vwap': None, 'above_vwap': None, 'distance_pct': None}
@@ -837,8 +827,8 @@ def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
         }
 
         # Active patterns (same logic as original)
-        orb_has_levels = (not is_premarket) and orb_qualified and (opening_range or 0) > 0
-        orb_watch = (not is_premarket) and (not orb_has_levels) and output['regime'].get('label') == 'Trending' and pm_range_active
+        orb_has_levels = orb_qualified and (opening_range or 0) > 0
+        orb_watch = (not orb_has_levels) and output['regime'].get('label') == 'Trending' and pm_range_active
 
         gap_pattern_name = gap_direction = gap_notes = gap_levels = None
         gap_continuation_hits = {}
@@ -945,18 +935,6 @@ def _generate_trading_signals(db, cache_dir, target_date=None, phase='eod'):
                            'range_size': round(od_range, 2), 'atr': round(atr_current, 2)},
                 'outcome': {'next_day': True, 'note': f"Enter {'above' if is_up else 'below'} ${entry:.2f} next session"},
             })
-
-    # Premarket (9 AM) and post-close (4:15 PM) both write the same canonical
-    # trading_signals.json — post-close overwrites the premarket-only checklist
-    # snapshot with the full computation once RTH data exists. Dated history
-    # files are EOD-only; premarket data isn't preserved historically since
-    # it can't be reconstructed after the fact from daily OHLCV.
-    if is_premarket:
-        canon = cache_dir / 'trading_signals.json'
-        with open(canon, 'w') as f:
-            json.dump(output, f, indent=2)
-        print(f"✓ Premarket → {canon}")
-        return
 
     spy_pts  = daily_data.get('SPY', [])
     data_date = datetime.fromtimestamp(spy_pts[-1][0], tz=timezone.utc).date() if spy_pts else now_utc.date()

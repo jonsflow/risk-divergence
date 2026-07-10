@@ -43,9 +43,7 @@ def cmd_generate(args):
     PricesGenerator(db).run()
     DivergenceGenerator(db).run()
     MacroGenerator(db).run()
-    tg = TradingGenerator(db)
-    tg.phase = getattr(args, 'phase', 'eod')
-    tg.run()
+    TradingGenerator(db).run()
     CorrelationGenerator(db).run()
 
 
@@ -63,9 +61,7 @@ def main():
 
     sub.add_parser('seed',     help='Seed SQLite from existing v1 CSVs')
     sub.add_parser('fetch',    help='Fetch fresh data from Yahoo Finance + FRED')
-    generate_parser = sub.add_parser('generate', help='Generate all cache files from SQLite')
-    generate_parser.add_argument('--phase', choices=['premarket', 'eod'], default='eod',
-                                 help='premarket (9AM ET) suppresses ORB/EOD stats; eod (post-close) computes all')
+    sub.add_parser('generate', help='Generate all cache files from SQLite')
     sub.add_parser('all',      help='Fetch + generate')
 
     trading_parser = sub.add_parser('trading', help='Generate trading signals only')
