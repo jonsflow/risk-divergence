@@ -55,10 +55,21 @@ def main():
     db = DBManager()
     generator = TradingGenerator(db, cache_dir=CACHE_DIR)
 
+    # Actual trading days = dates with a SPY daily bar. Yahoo returns bars only
+    # for sessions the market was open, so this excludes weekends and holidays.
+    trading_days = {
+        datetime.fromtimestamp(ts, tz=timezone.utc).date()
+        for ts, _ in db.load_daily_ohlcv('SPY')
+    }
+
     start, end = get_backfill_date_range(db, lookback_days=args.days)
     print(f"Backfilling {start} → {end}{' (force)' if args.force else ''}")
     skipped = generated = 0
     for d in weekdays_in_range(start, end):
+        if d not in trading_days:
+            print(f"  skip {d} (market closed — no daily bar)")
+            skipped += 1
+            continue
         out = CACHE_DIR / f"trading_signals_{d.isoformat()}.json"
         if out.exists() and not args.force:
             print(f"  skip {d} (already exists)")
