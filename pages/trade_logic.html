@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trade Signal Logic — Datasheet</title>
+  <base href="../">
+  <link rel="stylesheet" href="styles/styles.css">
+  <meta name="description" content="Ground-truth datasheet for the trade signal logic: day quality, regime, and pattern classification rules." />
+  <style>
+    .ds-section { margin-bottom: 18px; }
+    .ds-section h2 { margin: 0 0 4px 0; }
+    .ds-section h3 { margin: 14px 0 4px 0; color: #cbd5e1; font-size: 0.95em; }
+    .ds-lead { color: #94a3b8; font-size: 0.9em; margin: 0 0 10px 0; }
+    table.ds { border-collapse: collapse; width: 100%; font-size: 0.85em; margin: 6px 0 10px 0; }
+    table.ds th, table.ds td { border: 1px solid #2b2f38; padding: 5px 9px; text-align: left; vertical-align: top; }
+    table.ds th { background: #22242a; color: #e2e8f0; font-weight: 600; }
+    table.ds td.k { color: #7aa2f7; white-space: nowrap; font-family: ui-monospace, monospace; }
+    code { background: #1a1c22; color: #a5d6a7; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+    .pill { display: inline-block; font-size: 0.72em; padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+    .pill.now { background: #14321f; color: #4ade80; border: 1px solid #16643a; }
+    .pill.gap { background: #3a2a12; color: #f59e0b; border: 1px solid #7a5312; }
+    .ds-note { color: #94a3b8; font-size: 0.82em; }
+    .src { color: #6b7280; font-size: 0.75em; font-family: ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+  <nav class="site-nav"></nav>
+
+  <div class="card">
+    <h1 style="margin:0 0 4px 0">Trade Signal Logic — Datasheet</h1>
+    <div class="muted" style="font-size:0.9em">
+      Ground-truth reference for how the Trade page classifies setups. Every rule below is what
+      <code>pipeline/generators/trading_generator.py</code> actually computes today. Update this page
+      whenever the generator logic changes.
+    </div>
+  </div>
+
+  <!-- Data inputs -->
+  <div class="card ds-section">
+    <h2>Data Inputs</h2>
+    <p class="ds-lead">All analysis derives from three bar resolutions per symbol, pulled from Yahoo Finance into SQLite.</p>
+    <table class="ds">
+      <tr><th>Resolution</th><th>Window</th><th>Used for</th></tr>
+      <tr><td class="k">daily</td><td>max history</td><td>ATR, MA20, regime, gap median, ADR, engulfing, outside day</td></tr>
+      <tr><td class="k">hourly</td><td>~1 month</td><td>squeeze, RSI divergence, index alignment</td></tr>
+      <tr><td class="k">5-min</td><td>recent sessions</td><td>opening range (ORB), VWAP, overnight/day intraday files, EOD outcomes</td></tr>
+    </table>
+    <p class="ds-note">Symbols: SPY, QQQ, IWM, SMH, GLD, SLV, USO (equities/ETFs) · BTC, ETH (24/7 crypto).</p>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="card ds-section">
+    <h2>Step 1 — Day Quality Grade <span class="muted" style="font-size:0.6em;font-weight:normal">(SPY only)</span></h2>
+    <p class="ds-lead">A 0–8 score across four factors grades how tradeable the whole session looks. <span class="src">_grade_day_quality()</span></p>
+    <table class="ds">
+      <tr><th>Factor</th><th>Score</th><th>Rule</th></tr>
+      <tr>
+        <td>Gap + Overnight range</td><td class="k">0–2</td>
+        <td><b>has_gap</b> = gap ≥ 0.5× median 20-day gap · <b>has_pm_range</b> = premarket (08:00–09:30) range ≥ 0.7× its 20-day average. Both → 2, either → 1, neither → 0.</td>
+      </tr>
+      <tr>
+        <td>Structure</td><td class="k">0–2</td>
+        <td>Trending → 2 · Ranging → 1 · Choppy → 0 (from Step 2 regime).</td>
+      </tr>
+      <tr>
+        <td>Intraday range trend (ADR)</td><td class="k">0–2</td>
+        <td>ratio = ADR(8d) / ADR(20d), gap-excluded. &gt;1.1 → 2 · ≥0.9 → 1 · else 0. Isolates intraday follow-through from the overnight gap.</td>
+      </tr>
+      <tr>
+        <td>Index alignment</td><td class="k">0–2</td>
+        <td>Precomputed — do the tracked symbols agree on direction intraday. <span class="src">_compute_alignment_score()</span></td>
+      </tr>
+    </table>
+    <p class="ds-note"><b>Grade:</b> total ≥7 → <b>A+</b> · ≥5 → <b>A</b> · ≥3 → <b>B</b> · else <b>C</b>. Weekends → N/A.</p>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card ds-section">
+    <h2>Step 2 — Market Regime <span class="muted" style="font-size:0.6em;font-weight:normal">(from SPY)</span></h2>
+    <p class="ds-lead">Regime gates which patterns can fire (e.g. Gap Continuation and ORB-watch require Trending). <span class="src">_detect_regime()</span></p>
+    <table class="ds">
+      <tr><th>Field</th><th>Rule</th></tr>
+      <tr><td class="k">label / direction</td><td>Close &gt; MA20 and MA20 rising (vs 10 bars ago) → <b>Trending up</b>. Close &lt; MA20 and MA20 falling → <b>Trending down</b>. Otherwise <b>Ranging</b>.</td></tr>
+      <tr><td class="k">atr_trend</td><td>ATR(14) vs its 20-day average: &gt;1.1× → <b>expanding</b> · &lt;0.9× → <b>contracting</b> · else normal.</td></tr>
+      <tr><td class="k">day_type</td><td>Last completed daily bar vs prior: contained → <b>inside</b> (coil) · engulfs both sides → <b>outside</b> (expansion) · else normal.</td></tr>
+      <tr><td class="k">index_alignment</td><td>Hourly % moves of all symbols agree in sign (&gt;±0.5%) → aligned, else diverging.</td></tr>
+      <tr><td class="k">Choppy override</td><td>Ranging <b>and</b> contracting <b>and</b> not an outside day → relabel <b>Choppy</b>.</td></tr>
+    </table>
+    <h3>Volatility regime <span class="src">_classify_vol_regime()</span></h3>
+    <p class="ds-note">ATR(14) percentile over trailing 1 year (252d): &gt;85 → Extreme · &gt;60 → Elevated · ≥25 → Normal · else Low.</p>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="card ds-section">
+    <h2>Step 3 — Pattern Scanner <span class="muted" style="font-size:0.6em;font-weight:normal">(per symbol)</span></h2>
+
+    <h3>Gap: Continuation vs Fill <span class="pill gap">size-gated today</span></h3>
+    <p class="ds-lead">Significance is relative to each symbol's own typical overnight gap — <b>not</b> a fixed %. <span class="src">lines 740–862</span></p>
+    <table class="ds">
+      <tr><th>Term</th><th>Definition</th></tr>
+      <tr><td class="k">gap_pts</td><td><code>|today_open − prev_close|</code> in dollars.</td></tr>
+      <tr><td class="k">median gap</td><td>Median of <code>|open − prev_close|</code> over the last 20 days for that symbol.</td></tr>
+      <tr><td class="k">gap_significant</td><td>gap_pts ≥ <b>0.5×</b> median → qualifies as <b>Gap Fill</b>.</td></tr>
+      <tr><td class="k">gap_strong</td><td>gap_pts ≥ <b>1.5×</b> median → qualifies as <b>Gap Continuation</b>.</td></tr>
+      <tr><td class="k">Continuation</td><td>Requires <b>gap_strong AND regime = Trending</b>. Direction = gap direction. Targets = open ± 1.5× / 2.0× ATR.</td></tr>
+      <tr><td class="k">Fill</td><td>Significant but not strong (or not Trending). Direction = toward prior close (opposite the gap). Target = prev_close.</td></tr>
+    </table>
+    <p class="ds-note"><b>Worked example (SPY, 2026-07-13):</b> gap 2.48 pts = 1.1× median → significant (≥0.5) but not strong (&lt;1.5), so <b>Gap Fill</b>, even in a Trending regime. USO gapped 1.8× median → strong → <b>Gap Continuation</b>.</p>
+
+    <h3>ORB — Opening Range Breakout</h3>
+    <table class="ds">
+      <tr><th>Term</th><th>Definition</th></tr>
+      <tr><td class="k">opening_range</td><td>High − low of the 09:30–10:30 ET 5-min bars.</td></tr>
+      <tr><td class="k">orb_qualified</td><td>opening_range &gt; <b>0.75×</b> 20-day-average ATR (range is wide enough to break).</td></tr>
+      <tr><td class="k">ORB watch</td><td>Not qualified, but regime = Trending and premarket range active → flagged to watch, no levels.</td></tr>
+      <tr><td class="k">Targets</td><td>ORB high/low ± 1.5× / 2.0× ATR.</td></tr>
+    </table>
+
+    <h3>Other patterns</h3>
+    <table class="ds">
+      <tr><th>Pattern</th><th>Trigger</th><th>Entry</th></tr>
+      <tr><td>Outside Day</td><td>Today engulfs prior bar both sides; close in upper 25% → up, lower 25% → down.</td><td>Next session, above/below today's extreme; T1 = entry ± 1.5× range.</td></tr>
+      <tr><td>Engulfing</td><td>Volume-confirmed bullish/bearish engulfing (volume &gt; 20-day avg).</td><td>Next session, above/below today's extreme; T1/T2 = ± 1.5× / 2.0× ATR.</td></tr>
+      <tr><td>Squeeze</td><td>Hourly Bollinger width vs Keltner: strong / normal / weak / none, plus momentum sign.</td><td>Informational (context, not a standalone entry).</td></tr>
+      <tr><td>VWAP · RSI divergence</td><td>Price vs session VWAP; hourly RSI vs price swings.</td><td>Informational.</td></tr>
+    </table>
+  </div>
+
+  <!-- Known limitations / roadmap -->
+  <div class="card ds-section" style="border-color:#f59e0b">
+    <h2>Known Limitations &amp; Roadmap</h2>
+    <p class="ds-lead">This section is the living improvement log — where the model is intentionally simple today and what we plan to refine. Update as changes land.</p>
+    <table class="ds">
+      <tr><th>Gap</th><th>Status &amp; plan</th></tr>
+      <tr>
+        <td><b>Overnight range ignored in classification</b></td>
+        <td>Gap classification uses <b>only</b> <code>open − prev_close</code> (a single point). The full overnight/weekend range — e.g. a wide range that round-trips back to flat before the open — is captured in the intraday files but is <b>not</b> fed into pattern classification. Only the 08:00–09:30 premarket range enters Day Quality. <b>Plan:</b> fold overnight range in so a small gap after a wide, reverted overnight session (a failed-move / exhaustion tell) reads differently from a genuinely quiet gap.</td>
+      </tr>
+      <tr>
+        <td><b>Size gates continuation, not trend</b></td>
+        <td>Continuation is gated by gap size (≥1.5× median) rather than by whether the gap agrees with the trend. A small gap <i>with</i> the trend can be a better continuation than a large gap <i>against</i> it. <b>Plan:</b> make trend-alignment a first-class continuation qualifier; demote raw size to a confidence modifier.</td>
+      </tr>
+      <tr>
+        <td><b>Vol expansion / compression underused</b></td>
+        <td>ATR trend and squeeze are computed but don't yet weight pattern quality. ORB breakouts tend to work when range is <b>expanding</b> and fail when <b>compressing</b>. <b>Plan:</b> favor ORB in expansion, penalize in compression; treat ADR(8d)/ADR(20d) and squeeze status as pattern-probability inputs.</td>
+      </tr>
+      <tr>
+        <td><b>Single label, no probability or invalidation</b></td>
+        <td>Each setup emits one label. <b>Plan:</b> emit a ranked list of valid patterns, each with a probability and an explicit invalidation level, while the page keeps leading with the highest-probability one.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top: 18px;">
+    <div class="muted" style="text-align:center;font-size:12px">
+      <a href="pages/trade.html" style="color:#7aa2f7;text-decoration:none">← Back to Trade Recommendations</a>
+      <br><span style="color:#6b7280;">Not financial advice — for research and informational purposes only.</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { renderNav } from '../js/components/Navigation.js';
+    renderNav();
+  </script>
+</body>
+</html>

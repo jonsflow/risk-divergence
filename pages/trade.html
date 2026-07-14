@@ -41,6 +41,7 @@
   <div class="tab-bar" style="margin: 0 0 16px 0;">
     <button class="tab-btn active" data-tab="morning" onclick="switchTradeTab('morning')">Morning Setup</button>
     <button class="tab-btn" data-tab="eod" onclick="switchTradeTab('eod')">End of Day</button>
+    <button class="tab-btn" data-tab="logic" onclick="switchTradeTab('logic')">Signal Logic</button>
   </div>
 
   <!-- Morning Setup panel -->
@@ -92,6 +93,11 @@
       <h2>End of Day — Setup Outcomes</h2>
       <div id="eodContent">Loading…</div>
     </div>
+  </div>
+
+  <!-- Signal Logic panel (loaded from pages/trade_logic.html — single source of truth) -->
+  <div id="tab-logic" class="tab-panel">
+    <div id="logicContent" class="muted">Loading signal logic…</div>
   </div>
 
   <div class="card" style="margin-top: 18px;">

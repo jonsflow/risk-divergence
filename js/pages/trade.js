@@ -51,10 +51,34 @@ function squeezeHTML(squeeze) {
 }
 
 function switchTradeTab(tab) {
-  document.querySelectorAll('#tab-morning, #tab-eod').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#tab-morning, #tab-eod, #tab-logic').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
   document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+  if (tab === 'logic') loadLogicTab();
+}
+
+// Load the signal-logic datasheet once, from its single source file.
+let _logicLoaded = false;
+async function loadLogicTab() {
+  if (_logicLoaded) return;
+  _logicLoaded = true;
+  const host = document.getElementById('logicContent');
+  try {
+    const res = await fetch('pages/trade_logic.html');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+    // Pull the datasheet's content cards, dropping the standalone page's
+    // title card (first — redundant with the tab) and back-link footer (last).
+    const cards = Array.from(doc.querySelectorAll('body > .card'));
+    const body = cards.slice(1, -1);
+    host.innerHTML = '';
+    body.forEach(c => host.appendChild(c));
+  } catch (err) {
+    _logicLoaded = false;
+    host.innerHTML = `<span style="color:#ef4444">Could not load signal logic (${err.message}). ` +
+      `<a href="pages/trade_logic.html" style="color:#7aa2f7">Open datasheet directly →</a></span>`;
+  }
 }
 
 // =============================================================================
