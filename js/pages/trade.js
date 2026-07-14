@@ -58,6 +58,41 @@ function switchTradeTab(tab) {
   if (tab === 'logic') loadLogicTab();
 }
 
+// Build a prefilled GitHub "new issue" URL to propose a trade-logic change,
+// capturing the context the viewer is currently looking at.
+const REPO_SLUG = 'jonsflow/risk-model';
+// Build a prefilled GitHub "new issue" URL. Two flavors:
+//   'logic' — propose a change to the signal logic (Logic tab)
+//   'data'  — report displayed data that looks wrong/confusing (Morning/EOD)
+function issueUrl(kind) {
+  const d = cacheData || {};
+  const sym = document.getElementById('symbolSelector')?.value || '—';
+  const r = d.regime || {};
+  const regime = r.label ? `${r.label} ${r.direction || ''} (ATR ${r.atr_trend || '—'})`.trim() : '—';
+  const ctx = [
+    '---', '_Context when filed:_',
+    `- Session: ${d.session_date || '—'}`,
+    `- Symbol viewed: ${sym}`,
+    `- Regime: ${regime}`,
+    `- Day quality: ${d.day_quality?.grade || '—'}`,
+  ];
+  let title, label, body;
+  if (kind === 'data') {
+    title = '[Trade data] ';
+    label = 'trade-data';
+    body = ['### What looks wrong or confusing', '<!-- Which number/section, and what you expected -->', '',
+            '### Where', '<!-- Morning Setup / End of Day · which symbol -->', '', ...ctx].join('\n');
+  } else {
+    title = '[Trade logic] ';
+    label = 'trade-logic';
+    body = ['### Area', '<!-- Gap · ORB · Regime · Day Quality · Outside Day · Other -->', '',
+            '### Current behavior', '<!-- What the model does today — see the Signal Logic datasheet -->', '',
+            '### Proposed change', '', '### Rationale / evidence', '', '### What would invalidate this', '', ...ctx].join('\n');
+  }
+  const params = new URLSearchParams({ title, body, labels: label });
+  return `https://github.com/${REPO_SLUG}/issues/new?${params.toString()}`;
+}
+
 // Load the signal-logic datasheet once, from its single source file.
 let _logicLoaded = false;
 async function loadLogicTab() {
@@ -73,6 +108,22 @@ async function loadLogicTab() {
     const cards = Array.from(doc.querySelectorAll('body > .card'));
     const body = cards.slice(1, -1);
     host.innerHTML = '';
+
+    // "Propose a change" bar — opens a prefilled GitHub issue.
+    const bar = document.createElement('div');
+    bar.className = 'card';
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-color:#2f5a8c;';
+    bar.innerHTML = '<div><b>Have a different view?</b> ' +
+      '<span class="muted" style="font-size:0.85em;">Propose a change to the trade logic — opens a prefilled GitHub issue with the current context.</span></div>';
+    const a = document.createElement('a');
+    a.textContent = '💡 Propose a change';
+    a.target = '_blank'; a.rel = 'noopener';
+    a.style.cssText = 'background:#2f5a8c;color:#e2e8f0;border-radius:6px;padding:6px 14px;font-size:0.85em;text-decoration:none;white-space:nowrap;';
+    a.href = issueUrl('logic');
+    a.addEventListener('click', () => { a.href = issueUrl('logic'); }); // refresh context at click
+    bar.appendChild(a);
+    host.appendChild(bar);
+
     body.forEach(c => host.appendChild(c));
   } catch (err) {
     _logicLoaded = false;
@@ -1176,6 +1227,12 @@ async function init() {
   // Wire tab switching
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTradeTab(btn.dataset.tab));
+  });
+
+  // Wire "report a data issue" links (refresh context at click)
+  document.querySelectorAll('a.report-data-issue').forEach(link => {
+    link.href = issueUrl('data');
+    link.addEventListener('click', () => { link.href = issueUrl('data'); });
   });
 
   try {

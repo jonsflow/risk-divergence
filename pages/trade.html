@@ -46,7 +46,10 @@
 
   <!-- Morning Setup panel -->
   <div id="tab-morning" class="tab-panel active">
-    <div id="morningWindowLabel" class="muted" style="font-size: 0.8em; margin-bottom: 12px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px;">
+      <div id="morningWindowLabel" class="muted" style="font-size: 0.8em;"></div>
+      <a class="report-data-issue muted" href="#" target="_blank" rel="noopener" style="font-size:0.75em;text-decoration:none;white-space:nowrap;">⚠ Report a data issue</a>
+    </div>
 
     <!-- Step 1: Day Quality Gate -->
     <div class="card" id="step-1">
@@ -88,7 +91,10 @@
 
   <!-- End of Day panel -->
   <div id="tab-eod" class="tab-panel">
-    <div id="eodWindowLabel" class="muted" style="font-size: 0.8em; margin-bottom: 12px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px;">
+      <div id="eodWindowLabel" class="muted" style="font-size: 0.8em;"></div>
+      <a class="report-data-issue muted" href="#" target="_blank" rel="noopener" style="font-size:0.75em;text-decoration:none;white-space:nowrap;">⚠ Report a data issue</a>
+    </div>
     <div class="card">
       <h2>End of Day — Setup Outcomes</h2>
       <div id="eodContent">Loading…</div>
