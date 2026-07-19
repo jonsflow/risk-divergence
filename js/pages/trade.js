@@ -1309,6 +1309,7 @@ async function init() {
         scoredTrades = scored;
         renderRecommendations(scored);
         renderPositionCalc(scored);
+        renderEodOutcomes(scored);
       }
     });
 
