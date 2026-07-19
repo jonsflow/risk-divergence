@@ -85,6 +85,7 @@ function switchTradeTab(tab) {
   document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
   if (tab === 'logic') loadLogicTab();
 }
+window.switchTradeTab = switchTradeTab;
 
 // Build a prefilled GitHub "new issue" URL to propose a trade-logic change,
 // capturing the context the viewer is currently looking at.
