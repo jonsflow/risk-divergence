@@ -5,6 +5,7 @@ let cacheData      = null;
 let scoredTrades   = null;
 let latestDate     = null;
 let selectedSymbol = 'SPY';
+let viewingDate    = null;   // Date the user is currently looking at (vs todayET)
 
 // Premarket runs write eod_outcome: {} / opening_range: null (RTH hasn't happened
 // yet) — post-close overwrites with the full computation. Steps 2-6 need to check
@@ -16,6 +17,33 @@ function isEodReady() {
 
 function todayET() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
+function isMarketOpenForDate(dateStr) {
+  // Returns true if the session for dateStr would be complete by now.
+  // Weekend = never open. Weekday before ~16:15 ET = incomplete.
+  if (isWeekend(dateStr)) return false;
+  // Same-day before close → not yet complete
+  if (dateStr === todayET()) {
+    // We don't have wall-clock here, but the backend already flags incomplete
+    // sessions via empty eod_outcome. Trust isEodReady() for same-day.
+    return isEodReady();
+  }
+  // Historical date → session was completed
+  return true;
+}
+
+function eodGuardHTML(dateStr) {
+  if (isWeekend(dateStr)) {
+    return `<div style="background:#1e2330; border-left:4px solid #6b7280; padding:14px 16px; border-radius:4px; margin-bottom:16px;">
+      <strong style="color:#9ca3af;">Market Closed — Weekend</strong><br>
+      <span class="muted">No end-of-day data available for ${dateStr}. Select a weekday or check back Monday.</span>
+    </div>`;
+  }
+  return `<div style="background:#1e2330; border-left:4px solid #eab308; padding:14px 16px; border-radius:4px; margin-bottom:16px;">
+    <strong style="color:#eab308;">End of Day — Not Yet Available</strong><br>
+    <span class="muted">${dateStr} session data is still being built. Check back after 4:15 PM ET.</span>
+  </div>`;
 }
 
 function isWeekend(dateStr) {
@@ -57,6 +85,7 @@ function switchTradeTab(tab) {
   document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
   if (tab === 'logic') loadLogicTab();
 }
+window.switchTradeTab = switchTradeTab;
 
 // Build a prefilled GitHub "new issue" URL to propose a trade-logic change,
 // capturing the context the viewer is currently looking at.
@@ -804,6 +833,13 @@ function renderEodOutcomes(scored) {
   const el = document.getElementById('eodContent');
   if (!el) return;
 
+  // Guard: if the session for the viewed date hasn't completed yet, show a guard
+  // instead of whatever stale content might be in the DOM from a prior render.
+  if (viewingDate && !isMarketOpenForDate(viewingDate)) {
+    el.innerHTML = eodGuardHTML(viewingDate);
+    return;
+  }
+
   const sec = (title, body) => `
     <div style="margin-bottom: 24px;">
       <h3 style="margin: 0 0 12px 0; color: #94a3b8; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #2a2a3e; padding-bottom: 6px;">${title}</h3>
@@ -1148,6 +1184,9 @@ function renderAll() {
     ['step-2','step-3','step-4','step-5','step-6'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
+    // Clear EOD tab
+    const eodEl = document.getElementById('eodContent');
+    if (eodEl) eodEl.innerHTML = eodGuardHTML(viewingDate || todayET());
     return;
   }
 
@@ -1167,6 +1206,9 @@ function renderAll() {
       `<div class="muted" style="margin-top:12px; font-size:0.85em;">
         Steps 2-6 (ORB, opening range, EOD outcomes) available after the post-close report — check back after 4:15 PM ET.
       </div>`);
+    // Also clear the EOD tab so stale data doesn't persist
+    const eodEl = document.getElementById('eodContent');
+    if (eodEl) eodEl.innerHTML = eodGuardHTML(viewingDate || todayET());
     return;
   }
 
@@ -1180,6 +1222,7 @@ function renderAll() {
 }
 
 function renderWeekend(dateStr) {
+  viewingDate = dateStr;
   ['step-2','step-3','step-4','step-5','step-6'].forEach(id =>
     document.getElementById(id).style.display = 'none');
   document.getElementById('headerMeta').textContent = dateStr;
@@ -1190,9 +1233,13 @@ function renderWeekend(dateStr) {
       <strong style="color: #9ca3af;">Market Closed — Weekend</strong><br>
       <span class="muted">No grading until Monday.</span>
     </div>`;
+  // Also clear the EOD tab so it doesn't show stale data from a prior session
+  const eodEl = document.getElementById('eodContent');
+  if (eodEl) eodEl.innerHTML = eodGuardHTML(dateStr);
 }
 
 async function loadAndRender(dateStr) {
+  viewingDate = dateStr || todayET();
   if (isWeekend(dateStr)) {
     renderWeekend(dateStr);
     return;
@@ -1209,6 +1256,9 @@ async function loadAndRender(dateStr) {
         document.getElementById(id).style.display = 'none');
       document.getElementById('step1Content').innerHTML =
         `<div style="color: #9ca3af; padding: 12px;">No data available for ${dateStr}.</div>`;
+      // Clear EOD tab so it doesn't show stale data
+      const eodEl = document.getElementById('eodContent');
+      if (eodEl) eodEl.innerHTML = eodGuardHTML(viewingDate);
       return;
     }
     throw new Error(`Failed to fetch: ${response.status}`);
@@ -1260,6 +1310,7 @@ async function init() {
         scoredTrades = scored;
         renderRecommendations(scored);
         renderPositionCalc(scored);
+        renderEodOutcomes(scored);
       }
     });
 
@@ -1283,8 +1334,10 @@ async function init() {
     });
 
     if (isWeekend(today)) {
+      viewingDate = today;
       renderWeekend(today);
     } else if (today === latestDate) {
+      viewingDate = today;
       renderAll();
     } else {
       await loadAndRender(today);
