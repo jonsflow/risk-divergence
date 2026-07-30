@@ -4,8 +4,18 @@ pipeline/db_manager.py — SQLite schema, connection, and seed utilities.
 The DB is the internal store for the v2 pipeline. The browser never touches it;
 JSON cache files remain the browser-facing interface (unchanged from v1).
 
+All stored timestamps are UTC epoch seconds. Market-local interpretation belongs
+in pipeline/market_time.py, not here and not in generators.
+
 Schema:
-  prices_daily  (symbol, timestamp, open, high, low, close, volume)
+  prices_daily  (symbol, timestamp, open, high, low, close, volume,
+                 session_date, collected_at, is_complete)
+                 session_date — trading session the bar represents (YYYY-MM-DD)
+                 collected_at — UTC epoch the row was fetched (NULL for rows
+                                predating the column)
+                 is_complete  — collected_at >= that session's close. A bar
+                                fetched intraday is a partial snapshot and must
+                                not be read as a finished session.
   prices_hourly (symbol, timestamp, open, high, low, close, volume)
   prices_5m     (symbol, timestamp, open, high, low, close, volume)
   fred_data     (series_id, date, value)
@@ -16,6 +26,8 @@ import csv
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+
+from pipeline.market_time import session_close_utc
 
 
 DB_PATH  = Path("risk_model.db")
@@ -102,6 +114,51 @@ class DBManager:
                 );
             """)
             self._migrate_legacy_prices(conn)
+            self._migrate_daily_completeness(conn)
+
+    def _migrate_daily_completeness(self, conn: sqlite3.Connection) -> None:
+        """Add session_date / collected_at / is_complete to prices_daily.
+
+        A daily bar fetched before its own session closes is a partial snapshot
+        that looks identical to a final bar. Recording completeness at ingest
+        makes it self-identifying, so no consumer has to infer it from a clock.
+        Idempotent — no-op once the columns exist.
+        """
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(prices_daily)")}
+        added = [c for c in ('session_date', 'collected_at', 'is_complete') if c not in existing]
+        if not added:
+            return
+
+        if 'session_date' not in existing:
+            conn.execute("ALTER TABLE prices_daily ADD COLUMN session_date TEXT")
+        if 'collected_at' not in existing:
+            conn.execute("ALTER TABLE prices_daily ADD COLUMN collected_at INTEGER")
+        if 'is_complete' not in existing:
+            conn.execute("ALTER TABLE prices_daily ADD COLUMN is_complete INTEGER")
+
+        # Backfill. Existing timestamps are midnight UTC of the session date,
+        # so the date falls straight out. collected_at is genuinely unknown for
+        # these rows and stays NULL rather than being invented.
+        conn.execute("""
+            UPDATE prices_daily
+               SET session_date = date(timestamp, 'unixepoch')
+             WHERE session_date IS NULL
+        """)
+        # Any session that closed before now is complete. The only row this can
+        # get wrong is one for the current session, resolved on the next fetch.
+        today_utc = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        conn.execute("""
+            UPDATE prices_daily
+               SET is_complete = CASE WHEN session_date < ? THEN 1 ELSE 0 END
+             WHERE is_complete IS NULL
+        """, (today_utc,))
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_prices_daily_session
+                ON prices_daily (symbol, session_date)
+        """)
+        n = conn.execute("SELECT COUNT(*) FROM prices_daily").fetchone()[0]
+        print(f"Migrated prices_daily: added {', '.join(added)}; backfilled {n} rows.")
 
     def _migrate_legacy_prices(self, conn: sqlite3.Connection) -> None:
         """One-shot migration: copy rows out of the legacy `prices` table into
@@ -148,17 +205,39 @@ class DBManager:
     def upsert_daily(self, rows: list) -> int:
         """
         Insert or replace daily bars.
-        rows: list of (symbol, timestamp, open, high, low, close, volume)
-        Returns count inserted.
+        rows: (symbol, timestamp, open, high, low, close, volume,
+               session_date, collected_at, is_complete)
+
+        7-tuples are accepted for callers that don't track collection time — the
+        CSV seed path in particular. Their session_date comes from the timestamp
+        and is_complete is inferred from whether that session has since closed,
+        which is correct for historical data. collected_at stays NULL because it
+        is genuinely unknown; it is not invented.
+
+        The seed runs before the fetch, so any bar for a still-open session gets
+        re-stamped with a real collected_at moments later.
         """
+        now = datetime.now(timezone.utc)
+        norm = []
+        for r in rows:
+            if len(r) == 10:
+                norm.append(tuple(r))
+            elif len(r) == 7:
+                session_date = datetime.fromtimestamp(r[1], tz=timezone.utc).date()
+                complete = 1 if now >= session_close_utc(session_date) else 0
+                norm.append(tuple(r) + (session_date.isoformat(), None, complete))
+            else:
+                raise ValueError(f"upsert_daily expects 7- or 10-tuples, got {len(r)}")
+
         sql = """
             INSERT OR REPLACE INTO prices_daily
-                (symbol, timestamp, open, high, low, close, volume)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (symbol, timestamp, open, high, low, close, volume,
+                 session_date, collected_at, is_complete)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         with self.connect() as conn:
-            conn.executemany(sql, rows)
-        return len(rows)
+            conn.executemany(sql, norm)
+        return len(norm)
 
     def upsert_hourly(self, rows: list) -> int:
         """
@@ -214,22 +293,36 @@ class DBManager:
         with self.connect() as conn:
             return list(conn.execute(sql, (symbol.upper(),)))
 
-    def load_daily_ohlcv(self, symbol: str) -> list:
+    def load_daily_ohlcv(self, symbol: str, complete_only: bool = False) -> list:
         """
-        Return [(timestamp, {open,high,low,close,volume}), ...] for daily bars.
+        Return [(timestamp, {open,high,low,close,volume,session_date,is_complete}), ...].
+
+        complete_only=True drops any bar fetched before its own session closed.
+        Use it for anything that treats a bar as a finished session — ATR, MA,
+        pivots, day classification. Leave it False only when you deliberately
+        want the live partial bar (e.g. showing the current quote).
         """
         sql = """
-            SELECT timestamp, open, high, low, close, volume FROM prices_daily
+            SELECT timestamp, open, high, low, close, volume, session_date, is_complete
+            FROM prices_daily
             WHERE symbol = ?
             ORDER BY timestamp
         """
         with self.connect() as conn:
             rows = conn.execute(sql, (symbol.upper(),)).fetchall()
-        return [
-            (r[0], {'open': r[1] or 0.0, 'high': r[2] or 0.0,
-                    'low': r[3] or 0.0, 'close': r[4], 'volume': r[5] or 0})
-            for r in rows if r[4] is not None
-        ]
+        out = []
+        for r in rows:
+            if r[4] is None:
+                continue
+            complete = bool(r[7]) if r[7] is not None else False
+            if complete_only and not complete:
+                continue
+            out.append((r[0], {
+                'open': r[1] or 0.0, 'high': r[2] or 0.0,
+                'low': r[3] or 0.0, 'close': r[4], 'volume': r[5] or 0,
+                'session_date': r[6], 'is_complete': complete,
+            }))
+        return out
 
     def load_hourly_ohlcv(self, symbol: str) -> list:
         """

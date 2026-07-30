@@ -20,6 +20,7 @@ except ImportError:  # older yfinance
 
 from pipeline.base_fetcher import BaseFetcher
 from pipeline.db_manager import DBManager
+from pipeline.market_time import is_session_complete, parse_session_date
 
 # Yahoo intermittently rate-limits datacenter IPs (e.g. GitHub Actions runners),
 # often at the cookie/crumb handshake on the very first request. Retry with
@@ -155,11 +156,23 @@ class YahooFetcher(BaseFetcher):
         df = df.reset_index()
         df['Date'] = df['Date'].dt.strftime('%Y-%m-%d')
 
+        # Stamp completeness at ingest. Yahoo returns the current session as a
+        # partial bar with a running high/low/close, structurally identical to a
+        # finished one — the only thing that distinguishes them is whether we
+        # fetched before or after that session's close.
+        collected_at = datetime.now(timezone.utc)
+        collected_ts = int(collected_at.timestamp())
+
         rows = []
+        partial = 0
         for _, row in df.iterrows():
             try:
+                session_date = parse_session_date(row['Date'])
                 ts = int(datetime.strptime(row['Date'], '%Y-%m-%d')
                          .replace(tzinfo=timezone.utc).timestamp())
+                complete = is_session_complete(session_date, collected_at)
+                if not complete:
+                    partial += 1
                 rows.append((
                     symbol.upper(), ts,
                     float(row.get('Open', 0) or 0),
@@ -167,13 +180,17 @@ class YahooFetcher(BaseFetcher):
                     float(row.get('Low', 0) or 0),
                     float(row['Close']),
                     int(row.get('Volume', 0) or 0),
+                    session_date.isoformat(),
+                    collected_ts,
+                    1 if complete else 0,
                 ))
             except (ValueError, KeyError, TypeError):
                 continue
 
         if rows:
             self.db.upsert_daily(rows)
-            print(f"    daily  {symbol}: {len(rows)} bars stored", file=sys.stderr)
+            note = f" ({partial} partial — session not closed)" if partial else ""
+            print(f"    daily  {symbol}: {len(rows)} bars stored{note}", file=sys.stderr)
 
     def _fetch_hourly(self, symbol: str, ticker) -> None:
         last_ts = self.db.last_hourly_timestamp(symbol.upper())
