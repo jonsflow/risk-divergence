@@ -7,10 +7,18 @@ let latestDate     = null;
 let selectedSymbol = 'SPY';
 let viewingDate    = null;   // Date the user is currently looking at (vs todayET)
 
-// Premarket runs write eod_outcome: {} / opening_range: null (RTH hasn't happened
-// yet) — post-close overwrites with the full computation. Steps 2-6 need to check
-// for this rather than assume the full shape is always present.
+// The generator states which run produced this file: 'premarket' | 'intraday' |
+// 'eod'. Only an 'eod' file describes a finished session. Older cache files
+// predate the field, so fall back to the previous eod_outcome sniff for those —
+// but never prefer the sniff, since a mid-session run populates eod_outcome with
+// partial-day numbers that look complete.
+function sessionPhase() {
+  return cacheData.phase || null;
+}
+
 function isEodReady() {
+  const phase = sessionPhase();
+  if (phase) return cacheData.session_complete === true || phase === 'eod';
   const spy = cacheData.symbols?.SPY || {};
   return Object.keys(spy.eod_outcome || {}).length > 0;
 }
@@ -20,17 +28,13 @@ function todayET() {
 }
 
 function isMarketOpenForDate(dateStr) {
-  // Returns true if the session for dateStr would be complete by now.
-  // Weekend = never open. Weekday before ~16:15 ET = incomplete.
+  // Returns true if the session for dateStr is complete. The generator decides
+  // this from the ET wall clock at generation time; we just read its verdict.
   if (isWeekend(dateStr)) return false;
-  // Same-day before close → not yet complete
-  if (dateStr === todayET()) {
-    // We don't have wall-clock here, but the backend already flags incomplete
-    // sessions via empty eod_outcome. Trust isEodReady() for same-day.
-    return isEodReady();
-  }
-  // Historical date → session was completed
-  return true;
+  if (dateStr === todayET()) return isEodReady();
+  // A historical date is complete — unless this file was generated mid-session
+  // for that date and never refreshed.
+  return sessionPhase() ? isEodReady() : true;
 }
 
 function eodGuardHTML(dateStr) {
@@ -40,9 +44,59 @@ function eodGuardHTML(dateStr) {
       <span class="muted">No end-of-day data available for ${dateStr}. Select a weekday or check back Monday.</span>
     </div>`;
   }
+  const phase = sessionPhase();
+  const detail = phase === 'intraday'
+    ? `The ${dateStr} session is still open. Intraday values change until the close — end-of-day results are withheld until 4:15 PM ET so a partial day isn't shown as a final one.`
+    : `${dateStr} hasn't opened yet. The plan below is built from prior sessions and premarket only. End-of-day results appear after 4:15 PM ET.`;
+  const title = phase === 'intraday' ? 'Session In Progress' : 'Pre-Open — Plan Only';
   return `<div style="background:#1e2330; border-left:4px solid #eab308; padding:14px 16px; border-radius:4px; margin-bottom:16px;">
-    <strong style="color:#eab308;">End of Day — Not Yet Available</strong><br>
-    <span class="muted">${dateStr} session data is still being built. Check back after 4:15 PM ET.</span>
+    <strong style="color:#eab308;">${title}</strong><br>
+    <span class="muted">${detail}</span>
+  </div>`;
+}
+
+// Forecast vs outcome. day_quality is the call made before the open from prior
+// sessions only; day_realized is what the session delivered. Showing both is the
+// only way to tell whether the morning model is any good — a "Choppy / Selective"
+// call on a day that ran 1.8x ATR is a miss, and it should be visible as one.
+function realizedHTML() {
+  const r = cacheData.day_realized;
+  if (!r || !r.grade) return '';
+
+  const gc = (g) => (g === 'A+' || g === 'A') ? '#10b981' : g === 'B' ? '#f59e0b' : '#ef4444';
+  const expColor = { expansion: '#10b981', normal: '#f59e0b', compression: '#ef4444' }[r.expansion] || '#6b7280';
+  const expLabel = { expansion: 'Expansion', normal: 'Normal', compression: 'Compression' }[r.expansion] || '–';
+
+  // Gap between what was forecast and what happened, in grade-score points.
+  const drift = (r.forecast_total != null && r.total != null) ? r.total - r.forecast_total : null;
+  const driftHTML = drift === null ? ''
+    : drift >= 2  ? `<span style="color:#10b981;">delivered ${drift} pts above the pre-open call</span>`
+    : drift <= -2 ? `<span style="color:#ef4444;">delivered ${Math.abs(drift)} pts below the pre-open call</span>`
+    : `<span class="muted">in line with the pre-open call</span>`;
+
+  const cell = (label, value, color) => `
+    <div>
+      <div class="muted" style="font-size:0.72em; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;">${label}</div>
+      <strong style="color:${color || '#e5e7eb'};">${value}</strong>
+    </div>`;
+
+  return `
+  <div style="margin-top:14px; background:#22242a; border-left:4px solid ${gc(r.grade)}; border-radius:4px; padding:12px 14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <strong style="color:${gc(r.grade)};">What actually happened — ${r.grade}</strong>
+      <span style="font-size:1.2em; font-weight:bold; color:${gc(r.grade)};">${r.total}/${r.max}</span>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:18px; margin-bottom:10px;">
+      ${cell('Range', `$${r.range?.toFixed(2)} (${r.range_pct?.toFixed(2)}%)`)}
+      ${cell('vs ATR', `${r.atr_multiple?.toFixed(2)}x`, r.atr_multiple >= 1 ? '#10b981' : '#6b7280')}
+      ${cell('Profile', expLabel, expColor)}
+      ${cell('Close in range', `${Math.round((r.close_location ?? 0) * 100)}%`)}
+      ${cell('Trend day', r.trend_day ? 'Yes' : 'No', r.trend_day ? '#10b981' : '#6b7280')}
+    </div>
+    <div style="font-size:0.9em;">${r.verdict}</div>
+    <div style="font-size:0.85em; margin-top:4px;">
+      Pre-open call: <strong style="color:${gc(r.forecast_grade)};">${r.forecast_grade} (${r.forecast_total}/8)</strong> — ${driftHTML}
+    </div>
   </div>`;
 }
 
@@ -312,9 +366,12 @@ function renderDayQuality() {
     <div>
       <strong style="color: ${gradeColor};">Grade ${grade} — ${gradeLabel}</strong>
       ${grade === 'C' ? '<br><span class="muted" style="font-size:0.9em;">Score below threshold for active trading</span>' : ''}
+      <br><span class="muted" style="font-size:0.85em;">Pre-open call from prior sessions + premarket</span>
     </div>
     <span style="font-size: 1.5em; font-weight: bold; color: ${gradeColor};">${total}/${max}</span>
   </div>`;
+
+  html += realizedHTML();
 
   // VIX context row
   const vix = cacheData.vix || {};
@@ -546,16 +603,22 @@ function scoreConfluences() {
   const patterns = cacheData.active_patterns;
   const regime   = cacheData.regime.label;
 
+  // Patterns that historically fit each regime. Chop favours mean reversion —
+  // fades and fills rather than breakout continuation. This is a preference,
+  // not a veto: an empty list here used to blank the entire page on any Choppy
+  // day, discarding valid setups regardless of their own quality. A regime
+  // mismatch now costs one confluence point instead.
   const regimePatterns = {
     'Trending': ['ORB', 'Gap Fill', 'Gap Continuation', 'Engulfing'],
     'Ranging':  ['Gap Fill', 'Gap Continuation', 'Outside Day', 'Engulfing at S/R'],
-    'Choppy':   [],
+    'Choppy':   ['Gap Fill', 'Outside Day', 'Engulfing'],
   };
   const validPatterns = regimePatterns[regime] || [];
 
   const scored = patterns
-    .filter(p => p.symbol === selectedSymbol && validPatterns.some(v => p.pattern.includes(v)))
+    .filter(p => p.symbol === selectedSymbol)
     .map(p => {
+      const regimeMatch = validPatterns.some(v => p.pattern.includes(v));
       const sym      = p.symbol;
       const data     = cacheData.symbols[sym];
       const squeeze  = data.squeeze        || { status: 'unknown', momentum: 0, momentum_increasing: false };
@@ -569,7 +632,7 @@ function scoreConfluences() {
         'MACD aligned (daily)':     p.direction === 'up' ? data.macd_histogram > 0 : data.macd_histogram < 0,
         'MA(20) aligned (daily)':   p.direction === 'up' ? !!data.above_ma_20 : !data.above_ma_20,
         'Day A or A+':              ['A', 'A+'].includes(cacheData.day_quality.grade),
-        'Regime matches':           true,
+        'Regime matches':           regimeMatch,
         'Squeeze aligned (hourly)': squeeze.status !== 'none' && squeeze.status !== 'unknown' &&
                                     (p.direction === 'up' ? squeeze.momentum_increasing === true : squeeze.momentum_increasing === false),
       };
@@ -891,6 +954,7 @@ function renderEodOutcomes(scored) {
   if (grade === 'C') {
     dqBody += `<div style="margin-top:10px; color:#ef4444; font-size:0.9em;">No trades taken — day did not meet quality gate.</div>`;
   }
+  dqBody += realizedHTML();
   html += sec('1 — Day Quality', dqBody);
 
   // Section 2: Market Regime
@@ -899,7 +963,7 @@ function renderEodOutcomes(scored) {
   const patternMenus = {
     'Trending': 'ORB, Gap Fill, Gap Continuation, Engulfing (with trend)',
     'Ranging':  'Gap Fill, Gap Continuation, Outside Day, Engulfing at S/R',
-    'Choppy':   'No patterns — sit out',
+    'Choppy':   'Gap Fill, Outside Day, Engulfing (mean reversion — fade, don\'t chase)',
   };
   const rCol = regimeColors[regime.label] || '#6b7280';
   html += sec('2 — Market Regime', `

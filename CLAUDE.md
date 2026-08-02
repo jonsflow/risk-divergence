@@ -24,7 +24,23 @@ Risk Model is a static GitHub Pages site with eight pages covering divergence si
 Active workflow: `.github/workflows/update-data-v2.yml`
 Schedule: **09:00 ET (pre-market) and 16:15 ET (post-close) every weekday, year-round.**
 
-GitHub Actions cron is UTC-only, so we schedule the two possible UTC times for each ET slot (13:00/14:00 UTC for 09:00 ET, 20:15/21:15 UTC for 16:15 ET) and gate the job on `TZ=America/New_York` wall time. The wrong-DST firings hit the gate step and no-op, so the workflow always does its two real runs at exactly 09:00 ET and 16:15 ET regardless of DST.
+GitHub Actions cron is UTC-only. **By design, we run one cron per ET slot and update both by hand at each DST changeover.** A multi-cron + wall-time-gate version was tried and removed — it broke and was too complex. Do not reintroduce it.
+
+Do not assume a run happens at its scheduled time. GitHub's scheduler queues jobs under load; the 09:00 ET run has been observed committing at 11:10 ET, well into the session. The phase contract below is what makes an off-schedule run safe.
+
+### Trade cache phase contract
+
+`trading_signals.json` is written by both daily runs and stamps which one produced it:
+
+- `phase`: `"premarket"` | `"intraday"` | `"eod"` — derived from `session_date` plus ET wall clock (RTH open 09:30, EOD mark 16:15).
+- `session_complete`: `true` only when `phase == "eod"`.
+
+Two rules follow, and both are load-bearing:
+
+1. **Anything scored before the close uses only bars dated strictly before `session_date`.** `day_quality`, `regime`, and `day_type` are pre-open calls and must not peek at the session they describe. Slice history with `_prior_bars()` / `_completed_bars()`, **never** `points[:-1]` — Yahoo opens today's daily bar intraday, so `points[-1]` is sometimes a partial today-bar and sometimes yesterday's complete one, and position slicing silently shifts the window by a day.
+2. **Anything describing the session itself is suppressed until `session_complete`.** `eod_outcome` is `{}` and `day_realized` is `{}` before then. Computing them on a partial bar yields plausible-looking but wrong "final" numbers.
+
+`day_quality` is always the pre-open forecast; `day_realized` (EOD only) records what the session delivered, scored on the same 0–8 scale so forecast and outcome can be compared over time. Consumers must read `phase` / `session_complete` — never infer completeness from whether a field is populated.
 
 Steps:
 1. `python3 -m pipeline.run seed` — seed SQLite from existing CSVs (idempotent)
@@ -115,7 +131,7 @@ python3 -m http.server 8000
 │       ├── T10Y2Y.csv, DGS10.csv, VIXCLS.csv, ...
 │       └── (32 series total)
 └── .github/workflows/
-    ├── update-data-v2.yml      # active: 09:00 + 16:15 ET weekdays (DST-aware, see Data Pipelines)
+    ├── update-data-v2.yml      # active: 09:00 + 16:15 ET weekdays (crons updated manually at DST)
     └── backfill-trading-history.yml  # manual: regenerate historical dated cache files
 ```
 
@@ -159,5 +175,6 @@ Configurable via dropdowns: lookback (20/50/100d), pivot mode (recent/highest/hi
 3. **FRED key not found**: Ensure `.env` has `FRED_API_KEY=...` and `python-dotenv` is installed
 4. **Weekly change doubled**: `findPriorPoint` uses date-based lookback — daily=1, weekly=6, monthly=25 days
 5. **BTC has 24/7 data**: ~700 hourly bars vs ~143 for stocks
-6. **Workflow schedule**: two runs weekdays — 09:00 ET (pre-market) and 16:15 ET (post-close). DST-aware via 4 UTC crons + a wall-time gate step; see the Data Pipelines section.
+6. **Workflow schedule**: two runs weekdays — 09:00 ET (pre-market) and 16:15 ET (post-close). One cron each, updated manually at DST changeover — deliberate, don't "fix" it with extra crons or a gate step. Runs can and do fire late, so never assume the cache was generated at its scheduled time — read `phase`. See the Data Pipelines section.
+8. **Regime labels are preferences, not vetoes**: `Choppy` in `js/pages/trade.js` once mapped to an empty pattern list, which blanked the whole page on any Choppy day regardless of setup quality. Regime mismatch costs one confluence point; it never filters a setup out.
 7. **Trading signal logic**: lives only in `pipeline/generators/trading_generator.py`. `scripts/generate_trading_cache.py` has been deleted. Always check the workflow YAML before editing any generator to confirm what actually runs in production.
