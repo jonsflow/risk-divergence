@@ -23,6 +23,52 @@ function isEodReady() {
   return Object.keys(spy.eod_outcome || {}).length > 0;
 }
 
+// -----------------------------------------------------------------------------
+// Regime → favoured patterns.
+//
+// The mapping itself lives in config/trading_config.json and is resolved by the
+// generator, which stamps `regime.favored` and a per-pattern `regime_match`.
+// Everything below is presentation only: keys → display text. Do not reintroduce
+// a pattern list here — four divergent copies of this mapping is exactly the bug
+// this replaced (Steps 2 and 3 said "sit out" while Steps 4 and 5 scored trades).
+// -----------------------------------------------------------------------------
+const PATTERN_LABELS = {
+  orb:              'ORB',
+  gap_fill:         'Gap Fill',
+  gap_continuation: 'Gap Continuation',
+  engulfing:        'Engulfing',
+  outside_day:      'Outside Day',
+};
+
+// LEGACY: the committed cache predates `favored` / `regime_match`. A missing
+// field would read as false and silently cost every setup a confluence point,
+// so fall back to the old substring test until the workflow has regenerated.
+// Remove both fallbacks (and this constant) after two workflow runs have landed.
+const LEGACY_REGIME_PATTERNS = {
+  'Trending': ['ORB', 'Gap Fill', 'Gap Continuation', 'Engulfing'],
+  'Ranging':  ['Gap Fill', 'Gap Continuation', 'Outside Day', 'Engulfing'],
+  'Choppy':   ['Gap Fill', 'Outside Day', 'Engulfing'],
+};
+const LEGACY_FAVORED_LABELS = {
+  'Trending': 'ORB, Gap Fill, Gap Continuation, Engulfing (with the trend)',
+  'Ranging':  'Gap Fill, Gap Continuation, Outside Day, Engulfing (engulfing at support/resistance)',
+  'Choppy':   'Gap Fill, Outside Day, Engulfing (mean reversion — fade, don\'t chase)',
+};
+
+function favoredLabel(regime) {
+  const fav = regime?.favored;
+  if (!fav || !Array.isArray(fav.patterns) || fav.patterns.length === 0)
+    return LEGACY_FAVORED_LABELS[regime?.label] || '—';   // LEGACY, see above
+  const names = fav.patterns.map(k => PATTERN_LABELS[k] || k).join(', ');
+  return fav.note ? `${names} (${fav.note})` : names;
+}
+
+function regimeMatchOf(pattern, regimeLabel) {
+  if (typeof pattern.regime_match === 'boolean') return pattern.regime_match;
+  const legacy = LEGACY_REGIME_PATTERNS[regimeLabel] || [];   // LEGACY, see above
+  return legacy.some(v => pattern.pattern.includes(v));
+}
+
 function todayET() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
@@ -490,11 +536,6 @@ function renderRegime() {
   const regime = cacheData.regime;
 
   const regimeColors = { 'Trending': '#3b82f6', 'Ranging': '#f59e0b', 'Choppy': '#ef4444' };
-  const patternMenu  = {
-    'Trending': 'ORB, Gap Fill, Gap Continuation, Engulfing (with trend)',
-    'Ranging':  'Gap Fill, Gap Continuation, Outside Day, Engulfing at S/R',
-    'Choppy':   'No patterns valid — sit out',
-  };
 
   document.getElementById('step2Content').innerHTML = `
     <div class="metric-grid" style="margin-bottom: 16px;">
@@ -524,8 +565,11 @@ function renderRegime() {
       </div>
     </div>
     <div style="background: #22242a; padding: 12px; border-radius: 4px; border-left: 4px solid ${regimeColors[regime.label]};">
-      <strong>Valid Patterns for ${regime.label} Regime:</strong><br>
-      ${patternMenu[regime.label]}
+      <strong>Favoured Patterns for ${regime.label} Regime:</strong><br>
+      ${favoredLabel(regime)}
+      <div class="muted" style="font-size: 0.85em; margin-top: 6px;">
+        A regime mismatch costs one confluence point — it does not disqualify a setup.
+      </div>
     </div>`;
 }
 
@@ -538,22 +582,10 @@ function renderPatternScanner() {
   const regime   = cacheData.regime.label;
   const data     = cacheData.symbols[selectedSymbol];
 
-  const regimePatterns = {
-    'Trending': ['ORB', 'Gap Fill', 'Gap Continuation', 'Engulfing'],
-    'Ranging':  ['Gap Fill', 'Gap Continuation', 'Outside Day', 'Engulfing at S/R'],
-    'Choppy':   [],
-  };
-  const validPatterns = regimePatterns[regime] || [];
-
-  if (validPatterns.length === 0) {
-    document.getElementById('step3Content').innerHTML =
-      `<div style="background: #2a2414; padding: 12px; border-radius: 4px;">No patterns valid for ${regime} regime — sit out.</div>`;
-    return;
-  }
-
-  const symPatterns = patterns.filter(p =>
-    p.symbol === selectedSymbol && validPatterns.some(v => p.pattern.includes(v))
-  );
+  // Every detected pattern is listed. Regime is a preference, not a veto: the
+  // Fit column shows the one-point cost of an off-regime setup rather than
+  // hiding the setup outright.
+  const symPatterns = patterns.filter(p => p.symbol === selectedSymbol);
 
   if (symPatterns.length === 0) {
     const reasons = [];
@@ -565,7 +597,7 @@ function renderPatternScanner() {
 
     document.getElementById('step3Content').innerHTML = `
       <div style="color: #6b7280; padding: 12px;">
-        No valid ${selectedSymbol} patterns in ${regime} regime.
+        No ${selectedSymbol} patterns detected.
         ${reasons.length ? `<span class="muted" style="font-size:0.85em;"> · ${reasons.join(' · ')}</span>` : ''}
       </div>`;
     return;
@@ -576,6 +608,7 @@ function renderPatternScanner() {
       <tr style="border-bottom: 2px solid #a7a7ad;">
         <th style="text-align: left; padding: 8px;">Pattern</th>
         <th style="text-align: left; padding: 8px;">Direction</th>
+        <th style="text-align: left; padding: 8px;">Fit</th>
         <th style="text-align: left; padding: 8px;">Notes</th>
       </tr>
     </thead>
@@ -583,10 +616,15 @@ function renderPatternScanner() {
 
   symPatterns.forEach(p => {
     const dc = p.direction === 'up' ? '#10b981' : p.direction === 'down' ? '#ef4444' : '#6b7280';
+    const fit = regimeMatchOf(p, regime);
+    const fitHTML = fit
+      ? `<span style="color: #10b981;">✓ ${regime}</span>`
+      : `<span style="color: #f59e0b;" title="Costs one confluence point">△ off-regime</span>`;
     html += `
       <tr style="border-bottom: 1px solid #333;">
         <td style="padding: 8px; font-weight: bold;">${p.pattern}</td>
         <td style="padding: 8px; color: ${dc}; font-weight: bold;">${p.direction}</td>
+        <td style="padding: 8px; font-size: 0.9em;">${fitHTML}</td>
         <td style="padding: 8px; font-size: 0.9em;">${p.notes}</td>
       </tr>`;
   });
@@ -603,22 +641,12 @@ function scoreConfluences() {
   const patterns = cacheData.active_patterns;
   const regime   = cacheData.regime.label;
 
-  // Patterns that historically fit each regime. Chop favours mean reversion —
-  // fades and fills rather than breakout continuation. This is a preference,
-  // not a veto: an empty list here used to blank the entire page on any Choppy
-  // day, discarding valid setups regardless of their own quality. A regime
-  // mismatch now costs one confluence point instead.
-  const regimePatterns = {
-    'Trending': ['ORB', 'Gap Fill', 'Gap Continuation', 'Engulfing'],
-    'Ranging':  ['Gap Fill', 'Gap Continuation', 'Outside Day', 'Engulfing at S/R'],
-    'Choppy':   ['Gap Fill', 'Outside Day', 'Engulfing'],
-  };
-  const validPatterns = regimePatterns[regime] || [];
-
+  // Regime fit is a preference, not a veto: a mismatch costs one confluence
+  // point. The generator decides the verdict (see regimeMatchOf).
   const scored = patterns
     .filter(p => p.symbol === selectedSymbol)
     .map(p => {
-      const regimeMatch = validPatterns.some(v => p.pattern.includes(v));
+      const regimeMatch = regimeMatchOf(p, regime);
       const sym      = p.symbol;
       const data     = cacheData.symbols[sym];
       const squeeze  = data.squeeze        || { status: 'unknown', momentum: 0, momentum_increasing: false };
@@ -960,11 +988,6 @@ function renderEodOutcomes(scored) {
   // Section 2: Market Regime
   const regime       = cacheData.regime;
   const regimeColors = { 'Trending': '#3b82f6', 'Ranging': '#f59e0b', 'Choppy': '#ef4444' };
-  const patternMenus = {
-    'Trending': 'ORB, Gap Fill, Gap Continuation, Engulfing (with trend)',
-    'Ranging':  'Gap Fill, Gap Continuation, Outside Day, Engulfing at S/R',
-    'Choppy':   'Gap Fill, Outside Day, Engulfing (mean reversion — fade, don\'t chase)',
-  };
   const rCol = regimeColors[regime.label] || '#6b7280';
   html += sec('2 — Market Regime', `
     <div class="metric-grid" style="margin-bottom:10px;">
@@ -972,7 +995,7 @@ function renderEodOutcomes(scored) {
       ${pill('Direction', regime.direction, '#e2e8f0', null)}
       ${pill('ATR Trend', regime.atr_trend, '#e2e8f0', null)}
     </div>
-    <div class="muted" style="font-size:0.85em;">Valid patterns today: <strong style="color:#e2e8f0;">${patternMenus[regime.label] || '—'}</strong></div>`);
+    <div class="muted" style="font-size:0.85em;">Favoured patterns today: <strong style="color:#e2e8f0;">${favoredLabel(regime)}</strong></div>`);
 
   // Section 3: Pattern Outcomes
   const patterns = cacheData.active_patterns.filter(p => p.symbol === selectedSymbol);

@@ -64,7 +64,11 @@ def _load_config() -> tuple:
             regime_symbols.append(symbol)
         if "ticker" in entry:
             ticker_map[symbol] = entry["ticker"]
-    return trading_symbols, regime_symbols, ticker_map
+    # Regime → favoured patterns is the single source of truth for "does this
+    # setup fit today's tape". The generator stamps the verdict; the page renders
+    # it. `patterns` are keys (matched on), `note` is prose (displayed only).
+    regimes = config.get("regimes", {})
+    return trading_symbols, regime_symbols, ticker_map, regimes
 
 
 def _calculate_ema(values: list, period: int) -> list:
@@ -663,7 +667,7 @@ def _classify_vol_regime(points, atr_current):
 
 
 def _detect_regime(symbols, daily_data, hourly_data, session_date=None,
-                   session_complete=False, expansion=None):
+                   session_complete=False, expansion=None, regime_config=None):
     # Index divergence sets the alignment flag only — it no longer forces "Choppy".
     # The penalty for divergence is already applied separately via _compute_alignment_score.
     aligned = True
@@ -717,9 +721,23 @@ def _detect_regime(symbols, daily_data, hourly_data, session_date=None,
             and day_type != 'outside' and not expanding:
         label, direction = 'Choppy', 'mixed'
 
+    favored = (regime_config or {}).get(label, {})
     return {'label': label, 'direction': direction, 'atr_trend': atr_trend,
             'index_alignment': index_alignment, 'day_type': day_type,
-            'expansion': expansion or {}}
+            'expansion': expansion or {},
+            'favored': {'patterns': list(favored.get('patterns', [])),
+                        'note': favored.get('note', '')}}
+
+
+def _pattern_keys(keys, favored_patterns):
+    """Stamp a pattern with its component keys and whether they fit the regime.
+
+    Keys are composed from what the generator actually built, so the page never
+    has to parse the display string — that string-matching is exactly what let
+    'Engulfing at S/R' silently fail to match the emitted 'Engulfing'.
+    """
+    return {'keys': list(keys),
+            'regime_match': bool(set(keys) & set(favored_patterns or []))}
 
 
 def _resolve_prior_setups(daily_points):
@@ -820,7 +838,7 @@ def _calculate_eod_outcomes(points, hourly_points, gap, atr_14):
 
 
 def _generate_trading_signals(db, cache_dir, target_date=None):
-    trading_symbols, regime_symbols, _ = _load_config()
+    trading_symbols, regime_symbols, _, regime_config = _load_config()
     symbols = trading_symbols
     if not symbols:
         raise ValueError("No trading symbols in trading_config.json")
@@ -893,7 +911,8 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
     output['regime'] = _detect_regime(regime_symbols, daily_data, hourly_data,
                                       session_date=spy_date,
                                       session_complete=session_complete,
-                                      expansion=expansion)
+                                      expansion=expansion,
+                                      regime_config=regime_config)
     output['vix']    = _load_vix()
 
     _align_score, _align_detail = _compute_alignment_score(regime_symbols, hourly_data, spy_date)
@@ -1031,7 +1050,9 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
         orb_has_levels = orb_qualified and (opening_range or 0) > 0
         orb_watch = (not orb_has_levels) and output['regime'].get('label') == 'Trending' and pm_range_active
 
+        favored_patterns = output['regime'].get('favored', {}).get('patterns', [])
         gap_pattern_name = gap_direction = gap_notes = gap_levels = None
+        gap_key = None
         gap_continuation_hits = {}
         if gap['gap_significant'] and gap['gap_type'] != 'none':
             market_regime = output['regime'].get('label', 'Ranging')
@@ -1043,6 +1064,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
             ratio_str = f"{gap_pts_abs / sym_median_gap:.1f}× median" if sym_median_gap else ""
             if gap['gap_strong'] and market_regime == 'Trending':
                 gap_pattern_name, gap_direction = 'Gap Continuation', gap['gap_type']
+                gap_key = 'gap_continuation'
                 gap_notes  = f"Gap {gap['gap_pct']:+.2f}% · {gap_pts_abs:.2f} pts · {ratio_str} · Trending"
                 t1_cont = round(today_open_val + 1.5 * atr_current * mult, 2)
                 t2_cont = round(today_open_val + 2.0 * atr_current * mult, 2)
@@ -1058,6 +1080,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                 }
             else:
                 gap_pattern_name, gap_direction = 'Gap Fill', ('down' if is_up_gap else 'up')
+                gap_key = 'gap_fill'
                 gap_notes  = f"Gap {gap['gap_pct']:+.2f}% · {gap_pts_abs:.2f} pts · {ratio_str} · {market_regime}"
                 gap_levels = {'prev_close': prev_close_val, 'today_open': today_open_val, 'fill_target': prev_close_val,
                               'atr': round(atr_current, 2)}
@@ -1085,6 +1108,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                             'hit_t1': eod_outcome.get('orb_hit_t1', False),
                             'filled': eod_outcome.get('gap_filled', False),
                             **gap_continuation_hits},
+                **_pattern_keys(['orb'] + ([gap_key] if gap_key else []), favored_patterns),
             })
         elif orb_watch and gap_pattern_name:
             output['active_patterns'].append({
@@ -1093,12 +1117,14 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                 'levels': {**gap_levels, 'entry': 'ORB breakout at open'},
                 'outcome': {'next_day': False, 'filled': eod_outcome.get('gap_filled', False),
                             **gap_continuation_hits},
+                **_pattern_keys(['orb', gap_key], favored_patterns),
             })
         elif orb_watch:
             output['active_patterns'].append({
                 'symbol': symbol, 'pattern': 'ORB', 'direction': 'watch',
                 'notes': "Trending regime · PM range active · no gap", 'levels': {},
                 'outcome': {'no_trade': True, 'reason': 'Range < 0.75× ATR'},
+                **_pattern_keys(['orb'], favored_patterns),
             })
         elif gap_pattern_name:
             output['active_patterns'].append({
@@ -1106,6 +1132,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                 'notes': gap_notes, 'levels': gap_levels,
                 'outcome': {'next_day': False, 'filled': eod_outcome.get('gap_filled', False),
                             **gap_continuation_hits},
+                **_pattern_keys([gap_key], favored_patterns),
             })
 
         if engulfing in ['bullish', 'bearish']:
@@ -1120,6 +1147,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                            't1': round(entry + 1.5 * atr_current * mult, 2),
                            't2': round(entry + 2.0 * atr_current * mult, 2), 'atr': round(atr_current, 2)},
                 'outcome': {'next_day': True, 'note': f"Enter {'above' if is_up else 'below'} ${entry:.2f} next session"},
+                **_pattern_keys(['engulfing'], favored_patterns),
             })
 
         if outside_day:
@@ -1135,6 +1163,7 @@ def _generate_trading_signals(db, cache_dir, target_date=None):
                            't1': round(entry + 1.5 * od_range * mult, 2),
                            'range_size': round(od_range, 2), 'atr': round(atr_current, 2)},
                 'outcome': {'next_day': True, 'note': f"Enter {'above' if is_up else 'below'} ${entry:.2f} next session"},
+                **_pattern_keys(['outside_day'], favored_patterns),
             })
 
     data_date = spy_date or now_utc.date()

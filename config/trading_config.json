@@ -9,5 +9,19 @@
     {"symbol": "GLD", "name": "Gold ETF"},
     {"symbol": "SLV", "name": "Silver ETF"},
     {"symbol": "USO", "name": "United States Oil ETF"}
-  ]
+  ],
+  "regimes": {
+    "Trending": {
+      "patterns": ["orb", "gap_fill", "gap_continuation", "engulfing"],
+      "note": "with the trend"
+    },
+    "Ranging": {
+      "patterns": ["gap_fill", "gap_continuation", "outside_day", "engulfing"],
+      "note": "engulfing at support/resistance"
+    },
+    "Choppy": {
+      "patterns": ["gap_fill", "outside_day", "engulfing"],
+      "note": "mean reversion — fade, don't chase"
+    }
+  }
 }
