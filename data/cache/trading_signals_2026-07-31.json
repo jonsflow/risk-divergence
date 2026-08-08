@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:54.419192+00:00",
+  "generated": "2026-08-08T01:26:14.684049+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "A",
@@ -74,6 +74,15 @@
       "expanding": true,
       "basis": "realized_range",
       "atr_multiple": 1.39
+    },
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
     }
   },
   "symbols": {
@@ -83,7 +92,7 @@
       "high": 748.9,
       "low": 737.68,
       "close": 747.03,
-      "volume": 62339900,
+      "volume": 62445900,
       "volume_above_20d": true,
       "atr_14": 8.4,
       "atr_20d_avg": 8.33,
@@ -157,7 +166,7 @@
       "high": 695.77,
       "low": 680.05,
       "close": 687.99,
-      "volume": 50443900,
+      "volume": 50540500,
       "volume_above_20d": true,
       "atr_14": 14.7,
       "atr_20d_avg": 14.81,
@@ -231,7 +240,7 @@
       "high": 293.95,
       "low": 287.83,
       "close": 291.2,
-      "volume": 28322300,
+      "volume": 28350700,
       "volume_above_20d": true,
       "atr_14": 3.97,
       "atr_20d_avg": 4.27,
@@ -305,7 +314,7 @@
       "high": 561.44,
       "low": 535.24,
       "close": 540.53,
-      "volume": 14637100,
+      "volume": 14673900,
       "volume_above_20d": true,
       "atr_14": 26.66,
       "atr_20d_avg": 28.48,
@@ -527,7 +536,7 @@
       "high": 372.01,
       "low": 368.82,
       "close": 371.54,
-      "volume": 6641400,
+      "volume": 6825900,
       "volume_above_20d": true,
       "atr_14": 6.67,
       "atr_20d_avg": 7.07,
@@ -601,7 +610,7 @@
       "high": 52.42,
       "low": 51.54,
       "close": 52.36,
-      "volume": 11557100,
+      "volume": 11609700,
       "volume_above_20d": false,
       "atr_14": 1.75,
       "atr_20d_avg": 2.0,
@@ -675,7 +684,7 @@
       "high": 130.98,
       "low": 127.95,
       "close": 129.17,
-      "volume": 4525200,
+      "volume": 4676600,
       "volume_above_20d": false,
       "atr_14": 5.52,
       "atr_20d_avg": 4.6,
@@ -768,7 +777,12 @@
         "direction": "up",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -793,7 +807,12 @@
         "direction": "down",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -818,7 +837,12 @@
         "direction": "up",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -843,7 +867,12 @@
         "direction": "down",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -865,7 +894,11 @@
         "direction": "up",
         "hit_t1": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -882,7 +915,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $62410.87 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "ETH",
@@ -893,7 +930,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -913,7 +954,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -933,7 +979,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -950,7 +1001,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:21.635835+00:00",
+  "generated": "2026-08-08T01:25:38.532246+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "A",
@@ -74,6 +74,15 @@
       "expanding": false,
       "basis": "realized_range",
       "atr_multiple": 0.47
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
     }
   },
   "symbols": {
@@ -759,7 +768,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -775,7 +788,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -791,7 +808,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -808,7 +829,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $64597.57 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -824,7 +849,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -840,7 +869,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

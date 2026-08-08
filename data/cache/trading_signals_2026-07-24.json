@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:45.198424+00:00",
+  "generated": "2026-08-08T01:26:04.427224+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "C",
@@ -74,6 +74,14 @@
       "expanding": false,
       "basis": "realized_range",
       "atr_multiple": 0.9
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "mean reversion \u2014 fade, don't chase"
     }
   },
   "symbols": {
@@ -759,7 +767,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -775,7 +787,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

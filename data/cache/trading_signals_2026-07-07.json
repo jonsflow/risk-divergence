@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:23.336432+00:00",
+  "generated": "2026-08-08T01:25:40.359743+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "B",
@@ -74,6 +74,15 @@
       "expanding": false,
       "basis": "realized_range",
       "atr_multiple": 0.55
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
     }
   },
   "symbols": {
@@ -771,7 +780,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -793,7 +806,11 @@
         "direction": "down",
         "hit_t1": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "SMH",
@@ -809,7 +826,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -826,7 +847,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $375.52 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -842,7 +867,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -858,7 +887,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:26.490207+00:00",
+  "generated": "2026-08-08T01:25:43.793758+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "B",
@@ -74,6 +74,14 @@
       "expanding": false,
       "basis": "realized_range",
       "atr_multiple": 0.64
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "mean reversion \u2014 fade, don't chase"
     }
   },
   "symbols": {
@@ -759,7 +767,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -775,7 +787,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -791,7 +807,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -807,7 +827,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -823,7 +847,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -839,7 +867,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -855,7 +887,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

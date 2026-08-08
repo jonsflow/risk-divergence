@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:38.105438+00:00",
+  "generated": "2026-08-08T01:25:56.577761+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "B",
@@ -74,6 +74,14 @@
       "expanding": false,
       "basis": "realized_range",
       "atr_multiple": 0.94
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "mean reversion \u2014 fade, don't chase"
     }
   },
   "symbols": {
@@ -771,7 +779,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -787,7 +799,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -803,7 +819,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -819,7 +839,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -836,7 +860,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $65735.72 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -853,7 +881,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $1916.24 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -869,7 +901,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-02T17:56:20.112040+00:00",
+  "generated": "2026-08-08T01:25:36.899265+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "A",
@@ -74,6 +74,15 @@
       "expanding": true,
       "basis": "realized_range",
       "atr_multiple": 1.04
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
     }
   },
   "symbols": {
@@ -759,7 +768,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -775,7 +788,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -791,7 +808,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-04T01:22:12.358336+00:00",
+  "generated": "2026-08-08T01:25:14.334857+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "A+",
@@ -41,12 +41,49 @@
       "has_data": true
     }
   },
+  "day_realized": {
+    "grade": "A+",
+    "total": 7,
+    "max": 8,
+    "range": 13.02,
+    "range_pct": 1.8,
+    "atr_multiple": 1.53,
+    "expansion": "expansion",
+    "close_location": 0.01,
+    "trend_day": true,
+    "day_type": "inside",
+    "orb_breached": true,
+    "orb_hit_t1": false,
+    "gap_filled": true,
+    "scores": {
+      "range": 3,
+      "direction": 2,
+      "follow_through": 2
+    },
+    "forecast_grade": "A+",
+    "forecast_total": 7,
+    "verdict": "Trend day \u2014 directional follow-through"
+  },
   "regime": {
     "label": "Ranging",
     "direction": "sideways",
     "atr_trend": "expanding",
     "index_alignment": "aligned",
-    "day_type": "outside"
+    "day_type": "inside",
+    "expansion": {
+      "expanding": true,
+      "basis": "realized_range",
+      "atr_multiple": 1.53
+    },
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
+    }
   },
   "symbols": {
     "SPY": {
@@ -111,7 +148,7 @@
       "adr_20d": 7.38,
       "adr_8d": 9.17,
       "prev_range": 24.25,
-      "day_type": "outside",
+      "day_type": "inside",
       "premarket": {
         "high": 737.05,
         "low": 730.0,
@@ -185,7 +222,7 @@
       "adr_20d": 11.82,
       "adr_8d": 14.79,
       "prev_range": 39.25,
-      "day_type": "outside",
+      "day_type": "inside",
       "premarket": {
         "high": 707.83,
         "low": 696.89,
@@ -259,7 +296,7 @@
       "adr_20d": 4.9,
       "adr_8d": 5.75,
       "prev_range": 13.22,
-      "day_type": "outside",
+      "day_type": "inside",
       "premarket": {
         "high": 285.89,
         "low": 282.2,
@@ -346,7 +383,7 @@
       "adr_20d": 21.88,
       "adr_8d": 27.02,
       "prev_range": 59.03,
-      "day_type": "outside",
+      "day_type": "inside",
       "premarket": {
         "high": 590.0,
         "low": 572.4,
@@ -391,21 +428,21 @@
       "engulfing": "none",
       "squeeze": {
         "status": "strong",
-        "momentum": -287.5092,
+        "momentum": -274.1794,
         "momentum_increasing": false
       },
       "vwap": {
-        "vwap": 62099.78,
+        "vwap": 62099.55,
         "above_vwap": false,
-        "distance_pct": -0.37
+        "distance_pct": -0.35
       },
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
       },
       "eod_outcome": {
-        "orb_high": 62399.99,
-        "orb_low": 61474.36,
+        "orb_high": 62397.84,
+        "orb_low": 61539.56,
         "orb_breached_up": true,
         "orb_breached_down": true,
         "orb_breached": true,
@@ -420,16 +457,16 @@
       "adr_20d": 2455.14,
       "adr_8d": 3331.47,
       "prev_range": 2729.4,
-      "day_type": "normal",
+      "day_type": "inside",
       "premarket": {
-        "high": 61813.14,
-        "low": 60900.9,
-        "close": 61500.06
+        "high": 61839.84,
+        "low": 60904.87,
+        "close": 61498.33
       },
       "last_hour": {
-        "high": 62003.16,
-        "low": 61606.52,
-        "close": 61868.27
+        "high": 61990.0,
+        "low": 61611.08,
+        "close": 61880.06
       }
     },
     "ETH": {
@@ -465,22 +502,22 @@
       "engulfing": "none",
       "squeeze": {
         "status": "strong",
-        "momentum": -12.5571,
+        "momentum": -12.4982,
         "momentum_increasing": false
       },
       "vwap": {
-        "vwap": 1640.72,
+        "vwap": 1641.1,
         "above_vwap": false,
-        "distance_pct": -0.76
+        "distance_pct": -0.79
       },
       "rsi_divergence": {
         "signal": "none",
         "description": "No divergence"
       },
       "eod_outcome": {
-        "orb_high": 1665.6,
-        "orb_low": 1637.76,
-        "orb_breached_up": true,
+        "orb_high": 1666.23,
+        "orb_low": 1635.2,
+        "orb_breached_up": false,
         "orb_breached_down": true,
         "orb_breached": true,
         "orb_direction": "down",
@@ -496,14 +533,14 @@
       "prev_range": 81.69,
       "day_type": "normal",
       "premarket": {
-        "high": 1644.76,
+        "high": 1642.38,
         "low": 1614.35,
-        "close": 1635.76
+        "close": 1635.67
       },
       "last_hour": {
-        "high": 1631.84,
+        "high": 1632.17,
         "low": 1621.3,
-        "close": 1628.18
+        "close": 1628.07
       }
     },
     "GLD": {
@@ -580,7 +617,7 @@
       "adr_20d": 5.64,
       "adr_8d": 5.8,
       "prev_range": 11.73,
-      "day_type": "outside",
+      "day_type": "normal",
       "premarket": {
         "high": 390.78,
         "low": 379.12,
@@ -666,7 +703,7 @@
       "adr_20d": 1.95,
       "adr_8d": 1.93,
       "prev_range": 4.21,
-      "day_type": "outside",
+      "day_type": "normal",
       "premarket": {
         "high": 58.89,
         "low": 57.31,
@@ -777,7 +814,12 @@
         "direction": "down",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -802,7 +844,12 @@
         "direction": "down",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -824,7 +871,11 @@
         "direction": "down",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "SMH",
@@ -849,7 +900,12 @@
         "direction": "down",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -865,7 +921,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -881,7 +941,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -897,7 +961,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {
@@ -918,6 +986,9 @@
       "to": "15:55"
     }
   },
+  "session_date": "2026-06-10",
+  "phase": "eod",
+  "session_complete": true,
   "vix": {
     "current": 15.4,
     "avg_20d": 16.91,
