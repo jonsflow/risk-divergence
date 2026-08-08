@@ -67,7 +67,13 @@ def _load_config() -> tuple:
     # Regime → favoured patterns is the single source of truth for "does this
     # setup fit today's tape". The generator stamps the verdict; the page renders
     # it. `patterns` are keys (matched on), `note` is prose (displayed only).
-    regimes = config.get("regimes", {})
+    #
+    # Fail loudly rather than defaulting to {}. An empty mapping scores every
+    # setup as off-regime, which reads as a plausible page rather than an
+    # outage — the same silent-wrong-answer failure this block was built to end.
+    regimes = config.get("regimes")
+    if not regimes:
+        raise ValueError("trading_config.json has no `regimes` block")
     return trading_symbols, regime_symbols, ticker_map, regimes
 
 

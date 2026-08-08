@@ -40,33 +40,11 @@ const PATTERN_LABELS = {
   outside_day:      'Outside Day',
 };
 
-// LEGACY: the committed cache predates `favored` / `regime_match`. A missing
-// field would read as false and silently cost every setup a confluence point,
-// so fall back to the old substring test until the workflow has regenerated.
-// Remove both fallbacks (and this constant) after two workflow runs have landed.
-const LEGACY_REGIME_PATTERNS = {
-  'Trending': ['ORB', 'Gap Fill', 'Gap Continuation', 'Engulfing'],
-  'Ranging':  ['Gap Fill', 'Gap Continuation', 'Outside Day', 'Engulfing'],
-  'Choppy':   ['Gap Fill', 'Outside Day', 'Engulfing'],
-};
-const LEGACY_FAVORED_LABELS = {
-  'Trending': 'ORB, Gap Fill, Gap Continuation, Engulfing (with the trend)',
-  'Ranging':  'Gap Fill, Gap Continuation, Outside Day, Engulfing (engulfing at support/resistance)',
-  'Choppy':   'Gap Fill, Outside Day, Engulfing (mean reversion — fade, don\'t chase)',
-};
-
 function favoredLabel(regime) {
   const fav = regime?.favored;
-  if (!fav || !Array.isArray(fav.patterns) || fav.patterns.length === 0)
-    return LEGACY_FAVORED_LABELS[regime?.label] || '—';   // LEGACY, see above
+  if (!fav?.patterns?.length) return '—';
   const names = fav.patterns.map(k => PATTERN_LABELS[k] || k).join(', ');
   return fav.note ? `${names} (${fav.note})` : names;
-}
-
-function regimeMatchOf(pattern, regimeLabel) {
-  if (typeof pattern.regime_match === 'boolean') return pattern.regime_match;
-  const legacy = LEGACY_REGIME_PATTERNS[regimeLabel] || [];   // LEGACY, see above
-  return legacy.some(v => pattern.pattern.includes(v));
 }
 
 function todayET() {
@@ -616,7 +594,7 @@ function renderPatternScanner() {
 
   symPatterns.forEach(p => {
     const dc = p.direction === 'up' ? '#10b981' : p.direction === 'down' ? '#ef4444' : '#6b7280';
-    const fit = regimeMatchOf(p, regime);
+    const fit = p.regime_match;
     const fitHTML = fit
       ? `<span style="color: #10b981;">✓ ${regime}</span>`
       : `<span style="color: #f59e0b;" title="Costs one confluence point">△ off-regime</span>`;
@@ -642,11 +620,11 @@ function scoreConfluences() {
   const regime   = cacheData.regime.label;
 
   // Regime fit is a preference, not a veto: a mismatch costs one confluence
-  // point. The generator decides the verdict (see regimeMatchOf).
+  // point. The generator decides the verdict and stamps `regime_match`.
   const scored = patterns
     .filter(p => p.symbol === selectedSymbol)
     .map(p => {
-      const regimeMatch = regimeMatchOf(p, regime);
+      const regimeMatch = p.regime_match;
       const sym      = p.symbol;
       const data     = cacheData.symbols[sym];
       const squeeze  = data.squeeze        || { status: 'unknown', momentum: 0, momentum_increasing: false };
