@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "up",
     "atr_trend": "contracting",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -672,7 +681,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -689,7 +703,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -707,7 +725,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -724,7 +747,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -732,7 +759,11 @@
       "direction": "watch",
       "notes": "Trending regime \u00b7 PM range active \u00b7 no gap",
       "levels": {},
-      "outcome": {}
+      "outcome": {},
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -749,7 +780,11 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -775,7 +810,12 @@
         "direction": "none",
         "hit_t1": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -793,7 +833,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

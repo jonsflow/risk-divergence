@@ -39,7 +39,16 @@
     "label": "Ranging",
     "direction": "sideways",
     "atr_trend": "expanding",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $684.03 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $610.96 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -696,7 +713,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $390.52 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -713,7 +734,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $72897.14 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -730,7 +755,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $2109.06 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -748,7 +777,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -766,7 +800,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

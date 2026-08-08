@@ -39,7 +39,16 @@
     "label": "Ranging",
     "direction": "sideways",
     "atr_trend": "normal",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $253.48 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $400.09 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -696,7 +713,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $72732.43 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -713,7 +734,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $72732.43 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -730,7 +755,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $2270.59 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -747,7 +776,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $433.43 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

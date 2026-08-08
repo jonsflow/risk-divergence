@@ -42,7 +42,16 @@
     "direction": "up",
     "atr_trend": "contracting",
     "index_alignment": "aligned",
-    "day_type": "normal"
+    "day_type": "normal",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -731,7 +740,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -751,7 +765,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -771,7 +790,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -799,7 +823,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -816,7 +845,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $2338.48 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "GLD",
@@ -836,7 +869,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -856,7 +894,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -876,7 +919,12 @@
         "filled": false,
         "hit_t1_continuation": false,
         "hit_t2_continuation": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

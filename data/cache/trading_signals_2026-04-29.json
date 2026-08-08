@@ -39,7 +39,15 @@
     "label": "Choppy",
     "direction": "mixed",
     "atr_trend": "unknown",
-    "index_alignment": "diverging"
+    "index_alignment": "diverging",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "mean reversion \u2014 fade, don't chase"
+    }
   },
   "symbols": {
     "SPY": {
@@ -663,7 +671,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

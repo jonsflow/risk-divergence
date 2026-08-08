@@ -46,7 +46,16 @@
     "direction": "sideways",
     "atr_trend": "normal",
     "index_alignment": "aligned",
-    "day_type": "normal"
+    "day_type": "normal",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
+    }
   },
   "symbols": {
     "SPY": {
@@ -743,7 +752,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -768,7 +781,12 @@
         "direction": "down",
         "hit_t1": true,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -793,7 +811,12 @@
         "direction": "down",
         "hit_t1": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -809,7 +832,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -831,7 +858,11 @@
         "direction": "down",
         "hit_t1": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "ETH",
@@ -853,7 +884,11 @@
         "direction": "down",
         "hit_t1": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "GLD",
@@ -869,7 +904,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -885,7 +924,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -901,7 +944,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {
