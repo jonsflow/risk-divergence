@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "down",
     "atr_trend": "normal",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $688.62 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "QQQ",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $609.92 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "IWM",
@@ -696,7 +713,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $264.28 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -713,7 +734,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $264.28 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "SMH",
@@ -731,7 +756,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -748,7 +778,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $70044.00 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -765,7 +799,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $2085.43 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -783,7 +821,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -801,7 +844,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

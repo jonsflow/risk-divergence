@@ -42,7 +42,16 @@
     "direction": "up",
     "atr_trend": "normal",
     "index_alignment": "aligned",
-    "day_type": "normal"
+    "day_type": "normal",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -722,7 +731,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -733,7 +746,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -750,7 +767,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -767,7 +789,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $292.74 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "SMH",
@@ -778,7 +804,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -789,7 +819,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -800,7 +834,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -817,7 +855,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -834,7 +877,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -851,7 +899,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $68.76 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "USO",
@@ -876,7 +928,12 @@
         "direction": "up",
         "hit_t1": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

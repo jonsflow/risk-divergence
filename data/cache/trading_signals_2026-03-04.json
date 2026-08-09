@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "down",
     "atr_trend": "normal",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $74051.80 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $2198.66 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -697,7 +714,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

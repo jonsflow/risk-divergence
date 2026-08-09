@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "up",
     "atr_trend": "contracting",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $76575.36 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -680,7 +693,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

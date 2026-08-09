@@ -39,7 +39,16 @@
     "label": "Ranging",
     "direction": "sideways",
     "atr_trend": "expanding",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $610.35 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -680,7 +693,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

@@ -39,7 +39,15 @@
     "label": "Choppy",
     "direction": "mixed",
     "atr_trend": "unknown",
-    "index_alignment": "diverging"
+    "index_alignment": "diverging",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "mean reversion \u2014 fade, don't chase"
+    }
   },
   "symbols": {
     "SPY": {
@@ -666,7 +674,11 @@
         "breached": true,
         "direction": "down",
         "hit_t1": false
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "SMH",
@@ -684,7 +696,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "GLD",
@@ -702,7 +719,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -720,7 +742,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -738,7 +765,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

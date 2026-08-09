@@ -42,7 +42,16 @@
     "direction": "up",
     "atr_trend": "normal",
     "index_alignment": "aligned",
-    "day_type": "normal"
+    "day_type": "normal",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -740,7 +749,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "QQQ",
@@ -756,7 +770,11 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -773,7 +791,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -790,7 +813,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "orb",
+        "gap_fill"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -801,7 +829,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -812,7 +844,11 @@
       "outcome": {
         "no_trade": true,
         "reason": "Range < 0.75\u00d7 ATR"
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

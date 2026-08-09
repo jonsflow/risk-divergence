@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "down",
     "atr_trend": "expanding",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $661.36 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "IWM",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $245.54 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "SMH",
@@ -696,7 +713,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $386.07 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "USO",
@@ -714,7 +735,12 @@
       "outcome": {
         "next_day": false,
         "filled": true
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

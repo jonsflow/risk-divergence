@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "up",
     "atr_trend": "contracting",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -666,7 +675,11 @@
         "breached": true,
         "direction": "up",
         "hit_t1": false
-      }
+      },
+      "keys": [
+        "orb"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "BTC",
@@ -683,7 +696,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $76481.34 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -700,7 +717,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $2267.41 next session"
-      }
+      },
+      "keys": [
+        "engulfing"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {

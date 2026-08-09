@@ -40,33 +40,29 @@ const PATTERN_LABELS = {
   outside_day:      'Outside Day',
 };
 
-// LEGACY: the committed cache predates `favored` / `regime_match`. A missing
-// field would read as false and silently cost every setup a confluence point,
-// so fall back to the old substring test until the workflow has regenerated.
-// Remove both fallbacks (and this constant) after two workflow runs have landed.
-const LEGACY_REGIME_PATTERNS = {
-  'Trending': ['ORB', 'Gap Fill', 'Gap Continuation', 'Engulfing'],
-  'Ranging':  ['Gap Fill', 'Gap Continuation', 'Outside Day', 'Engulfing'],
-  'Choppy':   ['Gap Fill', 'Outside Day', 'Engulfing'],
-};
-const LEGACY_FAVORED_LABELS = {
-  'Trending': 'ORB, Gap Fill, Gap Continuation, Engulfing (with the trend)',
-  'Ranging':  'Gap Fill, Gap Continuation, Outside Day, Engulfing (engulfing at support/resistance)',
-  'Choppy':   'Gap Fill, Outside Day, Engulfing (mean reversion — fade, don\'t chase)',
-};
+// Day quality is a preference, not a veto — same rule as regime fit. A C or F
+// day used to hide Steps 2-6 outright, which discarded setups regardless of
+// their own quality and left the page blank below Step 1. The grade already
+// costs a confluence point ("Day A or A+" in scoreConfluences); that is the
+// price. Setups are shown, flagged low probability.
+function lowProbabilityHTML() {
+  const grade = cacheData.day_quality?.grade;
+  if (!['C', 'F'].includes(grade)) return '';
+  return `
+    <div style="background: #2a1414; border-left: 4px solid #ef4444; padding: 10px 12px; border-radius: 4px; margin-bottom: 12px;">
+      <strong style="color: #ef4444;">Low probability day — Grade ${grade}</strong>
+      <div class="muted" style="font-size: 0.85em; margin-top: 4px;">
+        Below the quality threshold for active trading. Setups are shown so you can judge them
+        on their own merits — expect lower hit rates, and size down or stand aside.
+      </div>
+    </div>`;
+}
 
 function favoredLabel(regime) {
   const fav = regime?.favored;
-  if (!fav || !Array.isArray(fav.patterns) || fav.patterns.length === 0)
-    return LEGACY_FAVORED_LABELS[regime?.label] || '—';   // LEGACY, see above
+  if (!fav?.patterns?.length) return '—';
   const names = fav.patterns.map(k => PATTERN_LABELS[k] || k).join(', ');
   return fav.note ? `${names} (${fav.note})` : names;
-}
-
-function regimeMatchOf(pattern, regimeLabel) {
-  if (typeof pattern.regime_match === 'boolean') return pattern.regime_match;
-  const legacy = LEGACY_REGIME_PATTERNS[regimeLabel] || [];   // LEGACY, see above
-  return legacy.some(v => pattern.pattern.includes(v));
 }
 
 function todayET() {
@@ -596,6 +592,7 @@ function renderPatternScanner() {
     if (data.above_ma_20 === false)             reasons.push('Below 20-MA');
 
     document.getElementById('step3Content').innerHTML = `
+      ${lowProbabilityHTML()}
       <div style="color: #6b7280; padding: 12px;">
         No ${selectedSymbol} patterns detected.
         ${reasons.length ? `<span class="muted" style="font-size:0.85em;"> · ${reasons.join(' · ')}</span>` : ''}
@@ -603,7 +600,8 @@ function renderPatternScanner() {
     return;
   }
 
-  let html = `<table style="width: 100%; border-collapse: collapse;">
+  let html = `${lowProbabilityHTML()}
+    <table style="width: 100%; border-collapse: collapse;">
     <thead>
       <tr style="border-bottom: 2px solid #a7a7ad;">
         <th style="text-align: left; padding: 8px;">Pattern</th>
@@ -616,7 +614,7 @@ function renderPatternScanner() {
 
   symPatterns.forEach(p => {
     const dc = p.direction === 'up' ? '#10b981' : p.direction === 'down' ? '#ef4444' : '#6b7280';
-    const fit = regimeMatchOf(p, regime);
+    const fit = p.regime_match;
     const fitHTML = fit
       ? `<span style="color: #10b981;">✓ ${regime}</span>`
       : `<span style="color: #f59e0b;" title="Costs one confluence point">△ off-regime</span>`;
@@ -642,11 +640,11 @@ function scoreConfluences() {
   const regime   = cacheData.regime.label;
 
   // Regime fit is a preference, not a veto: a mismatch costs one confluence
-  // point. The generator decides the verdict (see regimeMatchOf).
+  // point. The generator decides the verdict and stamps `regime_match`.
   const scored = patterns
     .filter(p => p.symbol === selectedSymbol)
     .map(p => {
-      const regimeMatch = regimeMatchOf(p, regime);
+      const regimeMatch = p.regime_match;
       const sym      = p.symbol;
       const data     = cacheData.symbols[sym];
       const squeeze  = data.squeeze        || { status: 'unknown', momentum: 0, momentum_increasing: false };
@@ -721,12 +719,12 @@ function scoreConfluences() {
 // =============================================================================
 
 function renderRecommendations(scored) {
-  let html = '';
+  let html = lowProbabilityHTML();
 
   if (scored.length === 0) {
-    html = `<div class="muted">No trades with sufficient confluence today.</div>`;
+    html += `<div class="muted">No trades with sufficient confluence today.</div>`;
   } else {
-    html = `<div style="display: flex; flex-wrap: wrap; gap: 12px;">`;
+    html += `<div style="display: flex; flex-wrap: wrap; gap: 12px;">`;
 
     scored.forEach(trade => {
       const d     = trade.data;
@@ -979,8 +977,8 @@ function renderEodOutcomes(scored) {
     ${pill('Structure',   scores.structure?.regime ?? '–', scoreColor(scores.structure?.score ?? 0), null)}
     ${pill('Alignment',   scores.alignment?.score === 2 ? 'Aligned' : scores.alignment?.score === 1 ? 'Partial' : 'Diverging', scoreColor(scores.alignment?.score ?? 0), null)}
   </div>`;
-  if (grade === 'C') {
-    dqBody += `<div style="margin-top:10px; color:#ef4444; font-size:0.9em;">No trades taken — day did not meet quality gate.</div>`;
+  if (['C', 'F'].includes(grade)) {
+    dqBody += `<div style="margin-top:10px; color:#ef4444; font-size:0.9em;">Low probability day — below the quality threshold for active trading.</div>`;
   }
   dqBody += realizedHTML();
   html += sec('1 — Day Quality', dqBody);
@@ -1274,14 +1272,6 @@ function renderAll() {
     // Clear EOD tab
     const eodEl = document.getElementById('eodContent');
     if (eodEl) eodEl.innerHTML = eodGuardHTML(viewingDate || todayET());
-    return;
-  }
-
-  if (['C', 'F'].includes(cacheData.day_quality.grade)) {
-    renderEodOutcomes(null);
-    ['step-2','step-3','step-4','step-5','step-6'].forEach(id => {
-      document.getElementById(id).style.display = 'none';
-    });
     return;
   }
 

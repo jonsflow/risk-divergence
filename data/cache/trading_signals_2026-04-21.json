@@ -39,7 +39,16 @@
     "label": "Trending",
     "direction": "up",
     "atr_trend": "contracting",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "orb",
+        "gap_fill",
+        "gap_continuation",
+        "engulfing"
+      ],
+      "note": "with the trend"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $702.64 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     },
     {
       "symbol": "IWM",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter below $273.76 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": false
     }
   ],
   "windows": {

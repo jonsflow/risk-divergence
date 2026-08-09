@@ -39,7 +39,16 @@
     "label": "Ranging",
     "direction": "sideways",
     "atr_trend": "normal",
-    "index_alignment": "aligned"
+    "index_alignment": "aligned",
+    "favored": {
+      "patterns": [
+        "gap_fill",
+        "gap_continuation",
+        "outside_day",
+        "engulfing"
+      ],
+      "note": "engulfing at support/resistance"
+    }
   },
   "symbols": {
     "SPY": {
@@ -662,7 +671,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $686.30 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "IWM",
@@ -679,7 +692,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $265.36 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SMH",
@@ -696,7 +713,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $443.64 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "ETH",
@@ -713,7 +734,11 @@
       "outcome": {
         "next_day": true,
         "note": "Enter above $2393.76 next session"
-      }
+      },
+      "keys": [
+        "outside_day"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "SLV",
@@ -731,7 +756,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     },
     {
       "symbol": "USO",
@@ -749,7 +779,12 @@
       "outcome": {
         "next_day": false,
         "filled": false
-      }
+      },
+      "keys": [
+        "gap_fill",
+        "gap_continuation"
+      ],
+      "regime_match": true
     }
   ],
   "windows": {
