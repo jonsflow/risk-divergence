@@ -1,180 +1,134 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## System Prompt
 
-## Project Overview
+<!-- Behavioral rules for working in this repo. To be filled in. -->
 
-Risk Model is a static GitHub Pages site with eight pages covering divergence signals, macro model, credit spreads, FRED economic data, FOMC policy, Fed Chair transitions, cross-asset correlations, and trade signals:
+## What This Is
 
-| Page | File | Data Source | Analysis |
-|------|------|-------------|----------|
-| Divergence | `index.html` / `js/pages/divergence.js` | Yahoo Finance CSVs + cache JSON | Python (`generate_cache.py`) |
-| Macro Model | `pages/macro.html` / `js/pages/macro.js` | Yahoo Finance CSVs + cache JSON | Python (`generate_cache.py`) |
-| Trade | `pages/trade.html` / `js/pages/trade.js` | trading_signals.json cache | Python (`pipeline/generators/trading_generator.py`) |
-| Credit Spread | `pages/credit.html` / `js/pages/credit.js` | FRED CSV (`BAMLH0A0HYM2`) | Client-side JS |
-| Gov Data | `pages/gov_data.html` / `js/pages/gov_data.js` | FRED CSVs (`data/fred/`) | Client-side JS |
-| FOMC | `pages/fomc.html` / `js/pages/fomc.js` | FRED CSVs (`data/fred/`) | Client-side JS |
+A static GitHub Pages site visualizing market and macro data. `index.html` at the
+repo root plus `pages/*.html`. No build step, no bundler, no package manager — the
+browser loads ES modules directly.
 
-**Key architectural rule**: Python is the single source of truth for divergence and macro analysis. JS is a pure renderer for those pages. Gov Data and Credit Spread are exceptions — they do lightweight client-side analysis (no pivot detection, just stats).
+## Architecture & Structure
 
-## Data Pipelines
+Python computes, JavaScript renders. Generators in `pipeline/generators/` write JSON
+to `data/cache/`; the JS reads it and draws it. A page is typically:
 
-### v2 SQLite Pipeline (active — all pages)
+```
+pages/trade.html → js/pages/trade.js → data/cache/trading_signals.json
+                                     ← pipeline/generators/trading_generator.py
+```
 
-Active workflow: `.github/workflows/update-data-v2.yml`
-Schedule: **09:00 ET (pre-market) and 16:15 ET (post-close) every weekday, year-round.**
+Pages reach data through `js/core/api.js`. `fetchCache` reads `data/cache/*.json`;
+`fetchFredBundle` reads FRED CSVs and is analyzed client-side. Credit Spread uses
+only `fetchFredBundle`; Gov Data uses both.
 
-GitHub Actions cron is UTC-only. **By design, we run one cron per ET slot and update both by hand at each DST changeover.** A multi-cron + wall-time-gate version was tried and removed — it broke and was too complex. Do not reintroduce it.
+```
+index.html         must stay at root — GitHub Pages serves it from there
+pages/             all other HTML
+js/pages/          one module per page
+js/core/           api.js, chart-utils.js, utils.js
+js/components/     shared UI (Navigation.js, etc.)
+styles/            all CSS
+config/            config, macro, fred, trading, correlation (JSON)
+pipeline/          run.py (seed/fetch/generate), db_manager, market_time,
+                   analysis, fetchers/, generators/
+scripts/           standalone scripts, always run from repo root
+docs/              reference docs — see Additional Knowledge
+data/              workflow-owned; cache/ generated JSON, fred/ series CSVs
+risk_model.db      SQLite, repo root
+.env               FRED_API_KEY
+```
 
-Do not assume a run happens at its scheduled time. GitHub's scheduler queues jobs under load; the 09:00 ET run has been observed committing at 11:10 ET, well into the session. The phase contract below is what makes an off-schedule run safe.
-
-### Trade cache phase contract
-
-`trading_signals.json` is written by both daily runs and stamps which one produced it:
-
-- `phase`: `"premarket"` | `"intraday"` | `"eod"` — derived from `session_date` plus ET wall clock (RTH open 09:30, EOD mark 16:15).
-- `session_complete`: `true` only when `phase == "eod"`.
-
-Two rules follow, and both are load-bearing:
-
-1. **Anything scored before the close uses only bars dated strictly before `session_date`.** `day_quality`, `regime`, and `day_type` are pre-open calls and must not peek at the session they describe. Slice history with `_prior_bars()` / `_completed_bars()`, **never** `points[:-1]` — Yahoo opens today's daily bar intraday, so `points[-1]` is sometimes a partial today-bar and sometimes yesterday's complete one, and position slicing silently shifts the window by a day.
-2. **Anything describing the session itself is suppressed until `session_complete`.** `eod_outcome` is `{}` and `day_realized` is `{}` before then. Computing them on a partial bar yields plausible-looking but wrong "final" numbers.
-
-`day_quality` is always the pre-open forecast; `day_realized` (EOD only) records what the session delivered, scored on the same 0–8 scale so forecast and outcome can be compared over time. Consumers must read `phase` / `session_complete` — never infer completeness from whether a field is populated.
-
-Steps:
-1. `python3 -m pipeline.run seed` — seed SQLite from existing CSVs (idempotent)
-2. `python3 -m pipeline.run fetch` — fetch Yahoo Finance + FRED → SQLite
-3. `python3 -m pipeline.run generate` — run all generators → `data/cache/*.json`
-4. Commit and push JSON cache files
-
-**Single source of truth rule**: Each page's analysis logic lives in exactly one file under `pipeline/generators/`. Never create a parallel implementation in `scripts/`. Always read the workflow YAML first to confirm what runs in production before editing any generator.
-
-| Generator | Output |
-|---|---|
-| `pipeline/generators/trading_generator.py` | `trading_signals.json` + dated history files |
-| `pipeline/generators/divergence_generator.py` | `divergence_*.json` |
-| `pipeline/generators/macro_generator.py` | `macro_*.json` |
-| `pipeline/generators/correlation_generator.py` | `correlation_*.json` |
-
-### FRED Pipeline (Credit + Gov Data)
-1. `fetch_fred.py` fetches FRED series via `fredapi` → `data/fred/{SERIES_ID}.csv`
-2. Requires `FRED_API_KEY` env var (store in `.env`, loaded via `python-dotenv`)
-3. Config driven by `config/fred_config.json` (categories structure with `display` and `freq` fields)
-4. JS loads CSVs directly and computes stats client-side — no cache files needed
-
-## Development Commands
+## Running
 
 ```bash
-# v2 pipeline (trading signals + all caches)
-python3 -m pipeline.run seed      # seed SQLite from existing CSVs
-python3 -m pipeline.run fetch     # fetch fresh data → SQLite
-python3 -m pipeline.run generate  # regenerate all cache files from SQLite
+python3 -m http.server 8000    # required — file:// breaks CORS
 
-# Yahoo Finance CSVs (divergence + macro, legacy path)
-python3 scripts/fetch_data.py          # fetch hourly + daily CSVs
-python3 scripts/generate_cache.py      # regenerate divergence/macro cache files
-
-# FRED data
-python3 scripts/fetch_fred.py          # fetch all FRED series (reads FRED_API_KEY from .env)
-
-# Local server (required — file:// causes CORS errors)
-python3 -m http.server 8000
+python3 -m pipeline.run seed       # CSVs → SQLite (idempotent)
+python3 -m pipeline.run fetch      # Yahoo + FRED → SQLite
+python3 -m pipeline.run generate   # SQLite → data/cache/*.json
 ```
 
-## File Structure
+Dependencies are not pinned: `pip install yfinance python-dotenv fredapi`
 
-```
-.
-├── index.html              # Divergence dashboard (must stay at root for GitHub Pages)
-├── pages/                  # All other HTML pages
-│   ├── macro.html
-│   ├── trade.html
-│   ├── credit.html
-│   ├── gov_data.html
-│   ├── fomc.html
-│   ├── correlation.html
-│   ├── fed_chair.html
-│   ├── trend_structure.html
-├── js/                     # ES module frontend
-│   ├── pages/              # Page-specific modules
-│   ├── core/               # Shared utilities (api.js, chart-utils.js, utils.js)
-│   └── components/         # UI components (Navigation.js, etc.)
-├── styles/                 # All CSS
-│   └── styles.css          # Main stylesheet (+ base.css, charts.css, etc.)
-├── config/                 # JSON configuration files
-│   ├── config.json         # Divergence pairs + symbol config
-│   ├── macro_config.json   # Macro categories + assets
-│   ├── fred_config.json    # FRED series (display + freq fields)
-│   ├── trading_config.json # Trading symbols
-│   └── correlation_config.json
-├── pipeline/               # v2 SQLite pipeline architecture
-├── scripts/                # All scripts (Python + shell), run from repo root
-│   ├── fetch_data.py           # Fetches Yahoo Finance CSVs (hourly + daily)
-│   ├── fetch_trading_hourly.py # Fetches intraday data for trading signals
-│   ├── fetch_fred.py           # Fetches FRED series → data/fred/*.csv
-│   ├── generate_cache.py       # Runs all analysis → data/cache/*.json
-│   ├── generate_correlation_cache.py
-│   ├── cache_utils.py          # Shared cache utilities
-│   └── refresh.sh              # Full refresh (run from repo root)
-├── docs/                   # Documentation
-├── .env                    # FRED_API_KEY (gitignored)
-├── data/
-│   ├── spy.csv, etc.       # Daily OHLCV (max history)
-│   ├── spy_hourly.csv, etc.# Hourly OHLCV (last 1 month)
-│   ├── cache/              # Precomputed JSON cache files
-│   │   ├── divergence_*.json
-│   │   ├── macro_*.json
-│   │   └── trading_signals.json
-│   └── fred/               # FRED series CSVs (Date,Value format)
-│       ├── BAMLH0A0HYM2.csv
-│       ├── T10Y2Y.csv, DGS10.csv, VIXCLS.csv, ...
-│       └── (32 series total)
-└── .github/workflows/
-    ├── update-data-v2.yml      # active: 09:00 + 16:15 ET weekdays (crons updated manually at DST)
-    └── backfill-trading-history.yml  # manual: regenerate historical dated cache files
-```
+## Testing
 
-## Symbols & Series
+There is no test suite. `.github/workflows/pr-validation.yml` runs on PRs to main,
+validating `config/config.json` structure (required keys, symbol references in
+pairs, hex color format) and syntax-checking `scripts/fetch_data.py`.
 
-### Yahoo Finance (SPY, HYG, QQQ, SMH, GLD, IWM, BTC-USD)
-Divergence pairs: SPY↔HYG, SPY↔QQQ, SPY↔IWM, SPY↔SMH, SPY↔GLD, SPY↔BTC
+## Workflow Schedule
 
-### FRED Series (32 total, 5 categories)
-- **Financial Conditions**: T10Y2Y, DGS10, T10YIE, T5YIE, VIXCLS, BAMLH0A0HYM2
-- **Labor Market**: ICSA, CCSA, PAYEMS, UNRATE, JTSJOL
-- **Inflation**: PCEPILFE, CPILFESL, CPIAUCSL, PPIACO
-- **Growth & Activity**: INDPRO, UMCSENT, RSAFS, FEDFUNDS, NFCI
-- **FOMC & Policy Rates**: DFEDTARU, DFEDTARL, EFFR, IORB, SOFR, SOFR30DAYAVG, WALCL, FEDTARMD, RRPONTSYD, WRESBAL, TREAST, MBST
+`.github/workflows/update-data-v2.yml` runs `seed → fetch → generate`, then commits
+`data/`. Weekdays, year-round:
 
-## config/fred_config.json Schema
+- `0 13 * * 1-5` — 09:00 ET, pre-market
+- `15 20 * * 1-5` — 16:15 ET, post-close
 
-Each series has three fields beyond `id` and `name`:
-- `"units"`: display label (%, K, idx, YoY%, $M)
-- `"display"`: `"level"` | `"pct_yoy"` | `"pct_mom"` — controls the stat shown on the card
-- `"freq"`: `"daily"` | `"weekly"` | `"monthly"` — controls lookback for change calculation
+GitHub cron is UTC-only. One cron per ET slot, updated by hand at each DST
+changeover. A multi-cron + wall-time-gate version was tried and removed.
 
-## Signal Logic (Divergence — Python only)
+Runs fire late. The 09:00 run has committed as late as 11:10 ET. Never assume a
+cache was written when its cron says.
 
-- **Bearish divergence**: Asset 1 makes higher highs, Asset 2 makes lower highs
-- **Bullish divergence**: Asset 1 makes lower highs, Asset 2 makes higher highs
-- **Aligned**: Both trending same direction
+`backfill-trading-history.yml` is manual — regenerates historical dated caches.
 
-Configurable via dropdowns: lookback (20/50/100d), pivot mode (recent/highest/highest-to-current), swing window (auto or manual). Each combination = one cache file.
+## Cache Phase Contract
 
-## Commit Rules
+`data/cache/trading_signals.json` stamps which run wrote it:
 
-- **Do not commit data files locally**: `data/*.csv`, `data/cache/*.json`, `data/fred/*.csv` are committed exclusively by the GitHub Actions workflow — do not stage or commit them from a dev environment.
-- **Only commit source files**: HTML, JS, Python, JSON configs, CSS, and workflow YAML.
-- The daily workflow at 16:15 ET handles all data fetching, cache regeneration, and data commits automatically.
+- `phase`: `"premarket" | "intraday" | "eod"`
+- `session_complete`: true only when `phase == "eod"`
 
-## Common Gotchas
+1. Anything scored before the close reads only bars dated strictly before
+   `session_date`. Slice with `_prior_bars()` / `_completed_bars()`, never
+   `points[:-1]` — the current day's bar may be partial, so positional slicing
+   shifts the window by a day.
+2. Anything describing the session itself stays empty until `session_complete`.
 
-1. **CORS errors**: Use `python3 -m http.server 8000`, not `file://`
-2. **Cache missing error**: Run `python3 -m pipeline.run generate` — JS has no analysis fallback
-3. **FRED key not found**: Ensure `.env` has `FRED_API_KEY=...` and `python-dotenv` is installed
-4. **Weekly change doubled**: `findPriorPoint` uses date-based lookback — daily=1, weekly=6, monthly=25 days
-5. **BTC has 24/7 data**: ~700 hourly bars vs ~143 for stocks
-6. **Workflow schedule**: two runs weekdays — 09:00 ET (pre-market) and 16:15 ET (post-close). One cron each, updated manually at DST changeover — deliberate, don't "fix" it with extra crons or a gate step. Runs can and do fire late, so never assume the cache was generated at its scheduled time — read `phase`. See the Data Pipelines section.
-8. **Regime labels are preferences, not vetoes**: `Choppy` in `js/pages/trade.js` once mapped to an empty pattern list, which blanked the whole page on any Choppy day regardless of setup quality. Regime mismatch costs one confluence point; it never filters a setup out.
-7. **Trading signal logic**: lives only in `pipeline/generators/trading_generator.py`. `scripts/generate_trading_cache.py` has been deleted. Always check the workflow YAML before editing any generator to confirm what actually runs in production.
+Consumers read `phase` / `session_complete` — never infer completeness from whether
+a field is populated.
+
+## Development Rules
+
+- **Single source of truth.** Each page's analysis lives in exactly one file under
+  `pipeline/generators/`. Never add a parallel implementation in `scripts/`. Read
+  the workflow YAML before editing a generator — `scripts/` holds legacy files
+  production does not call.
+- **Commit source only.** Code and config: HTML, JS, Python, CSS, JSON config,
+  workflow YAML. Never `data/` — no CSVs, no cache JSON. Those are committed
+  exclusively by the workflow.
+- **No attribution.** No `Co-Authored-By`, no session links, no generated-with
+  footers in commit messages or PR bodies.
+- **Commit ≠ push.** Never push, and never delete a remote branch, unless told to.
+- **Cache commits aren't divergence.** If every commit separating a branch from main
+  is a `chore: update caches` run, the branch is in sync.
+- **Read the logs before fixing.** Pull `gh run view <id> --log` before writing code.
+
+## Additional Knowledge
+
+Reference docs in `docs/`. Read on demand — not part of initial context. Titles are
+each file's own heading.
+
+- `trading-rules.md` — Systematic Decision Framework
+- `trading-cache-architecture.md` — Trading Cache Architecture
+- `COMPREHENSIVE_TRADING_GUIDE.md` — Patterns, Indicators & Strategies
+- `day-quality-grading.md` — Design Reference
+- `morning-grading-rewrite.md` — Implementation Spec
+- `squeeze-plan.md` — TTM Squeeze Implementation Plan
+- `trade_quality.md` — (no heading)
+- `pivot-logic.md` — Pivot Detection & Market Structure Labeling
+- `pivot-testbed.md` — Pivot Detection Testbed
+- `divergence-taxonomy.md` — Complete Reference
+- `cross-asset-divergence.md` — Application Guide
+- `pair-candidates.md` — Divergence Pair Candidates
+- `fred-data.md` — FRED Data
+- `gov-risk-score-research.md` — Research & Implementation Plan
+- `fomc-june-2026-research.md` — FOMC Meeting, June 17 2026
+- `economic-calendar-integration.md` — Finnhub API
+- `data-requirements-analysis.md` — Trading Rules vs. Inventory
+- `workflows.md` — GitHub Actions Workflows
+- `components.md` — Component Reference
+- `multi_agent_analyst_design.md` — Design Spec
