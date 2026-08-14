@@ -44,7 +44,8 @@ risk_model.db      SQLite, repo root
 ## Running
 
 ```bash
-python3 -m http.server 8000    # required — file:// breaks CORS
+python3 scripts/dev_server.py  # serves the site + syncs review comments
+python3 -m http.server 8000    # plain alternative — file:// breaks CORS
 
 python3 -m pipeline.run seed       # CSVs → SQLite (idempotent)
 python3 -m pipeline.run fetch      # Yahoo + FRED → SQLite

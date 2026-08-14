@@ -8,29 +8,43 @@
 
 const LOCALHOSTS = ['localhost', '127.0.0.1', '0.0.0.0'];
 const STORAGE_KEY = 'riskModelComments_v1';
+const ARCHIVE_KEY = 'riskModelComments_archive_v1';
 
 function isLocalDev() {
   return LOCALHOSTS.includes(window.location.hostname);
 }
 
-/**
- * The review UI is only useful when comments can reach the dev, which means
- * scripts/dev_server.py is serving and exposing /__review. Under `python3 -m
- * http.server` that 404s, and offering comment buttons whose output nobody can
- * read is worse than offering nothing.
- */
-async function syncEndpointAvailable() {
-  try {
-    const res = await fetch('/__review', { cache: 'no-store' });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 function pageKey() {
   // Use pathname so it works regardless of port / host
   return window.location.pathname;
+}
+
+// When served by scripts/dev_server.py the comments live in a file the dev can
+// read directly, so nothing has to be exported by hand. Falls back to
+// localStorage alone under `python3 -m http.server`, which has no POST.
+const SYNC_URL = '/__review';
+let syncAvailable = false;
+
+async function pullFromServer() {
+  try {
+    const res = await fetch(SYNC_URL, { cache: 'no-store' });
+    if (!res.ok) return null;
+    syncAvailable = true;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function pushToServer(store) {
+  if (!syncAvailable) return;
+  // Fire-and-forget: the local copy is already saved, and a failed sync must not
+  // block the reviewer mid-comment.
+  fetch(SYNC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(store),
+  }).catch(() => {});
 }
 
 function loadStore() {
@@ -43,6 +57,7 @@ function loadStore() {
 
 function saveStore(store) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  pushToServer(store);
 }
 
 function getComments(store, cardId) {
@@ -57,12 +72,20 @@ function setComment(store, cardId, comments) {
 }
 
 /* ------------------------------------------------------------------ */
-// Unique ID generator for cards without an id
-let _idCounter = 0;
+// Deterministic card id: nearest ancestor with an id, plus this card's index
+// among the .card elements inside it.
+//
+// This used to be a global counter, which meant a card's id depended on how many
+// cards had been seen before it. Any page that re-renders a container (the
+// statement tracker rebuilds its stats on every change) minted fresh ids each
+// pass, so comments anchored to the old ids were orphaned — present in storage
+// with no card left to display them.
 function ensureCardId(card) {
-  if (!card.id) {
-    card.id = `review-card-${_idCounter++}`;
-  }
+  if (card.id) return card.id;
+  const host  = card.parentElement?.closest('[id]') || document.body;
+  const scope = host.id || 'page';
+  const idx   = [...host.querySelectorAll('.card')].indexOf(card);
+  card.id = `review-${scope}-${idx}`;
   return card.id;
 }
 
@@ -205,7 +228,6 @@ function injectStyles() {
       width: 100%;
     }
     .review-export-copy { background: #2f5a8c; color: #e2e8f0; }
-    .review-export-clear { background: #374151; color: #a7a7ad; }
     .review-export-count { color: #eab308; font-weight: bold; }
   `;
   document.head.appendChild(style);
@@ -318,6 +340,13 @@ function showForm(card, cardId, store) {
   textarea.focus();
 }
 
+function flash(btn, msg, ms = 1800) {
+  const old = btn.dataset.label || btn.textContent;
+  btn.dataset.label = old;
+  btn.textContent = msg;
+  setTimeout(() => { btn.textContent = btn.dataset.label; }, ms);
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -341,38 +370,50 @@ function buildExportPanel() {
       <span>📝 Review</span>
       <span id="review-export-count" class="review-export-count">0</span>
     </div>
-    <button class="review-export-copy">📋 Export comments</button>
-    <button class="review-export-clear">🗑 Clear resolved</button>
+    <button class="review-export-copy">📋 Export &amp; clear</button>
   `;
 
-  panel.querySelector('.review-export-copy').addEventListener('click', () => {
-    const store = loadStore();
-    const payload = { exportedAt: new Date().toISOString(), comments: store };
-    navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(() => {
-      const btn = panel.querySelector('.review-export-copy');
-      const old = btn.textContent;
-      btn.textContent = '✅ Copied!';
-      setTimeout(() => btn.textContent = old, 1500);
-    });
-  });
-
-  panel.querySelector('.review-export-clear').addEventListener('click', () => {
-    const store = loadStore();
-    Object.keys(store).forEach(page => {
-      Object.keys(store[page]).forEach(cardId => {
-        store[page][cardId] = store[page][cardId].filter(c => !c.resolved);
-        if (store[page][cardId].length === 0) delete store[page][cardId];
-      });
-      if (Object.keys(store[page]).length === 0) delete store[page];
-    });
-    saveStore(store);
+  const refresh = (store) => {
     document.querySelectorAll('.card').forEach(card => {
       const existing = card.querySelector('.review-comments');
       if (existing) existing.remove();
-      const cardId = ensureCardId(card);
-      updateCardHighlight(card, cardId, store);
+      updateCardHighlight(card, ensureCardId(card), store);
     });
     updateExportBadge();
+  };
+
+  // Exporting is the hand-off: once the JSON is on the clipboard the comments have
+  // served their purpose, so they clear in the same action rather than leaving the
+  // reviewer to tick boxes afterwards. The payload is archived first, so an export
+  // that never reaches anyone is still recoverable from localStorage.
+  panel.querySelector('.review-export-copy').addEventListener('click', async () => {
+    const store = loadStore();
+    const total = Object.values(store)
+      .reduce((sum, page) => sum + Object.values(page).reduce((n, l) => n + l.length, 0), 0);
+    const btn = panel.querySelector('.review-export-copy');
+
+    if (!total) { flash(btn, 'Nothing to export'); return; }
+
+    const payload = { exportedAt: new Date().toISOString(), comments: store };
+    const text = JSON.stringify(payload, null, 2);
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Clipboard can be blocked; keep the comments rather than lose them silently.
+      flash(btn, '⚠ Copy failed — not cleared');
+      return;
+    }
+
+    try {
+      const archive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+      archive.push(payload);
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive.slice(-20)));
+    } catch { /* archive is a convenience, not a requirement */ }
+
+    saveStore({});
+    refresh({});
+    flash(btn, `✅ Copied ${total} — cleared`);
   });
 
   document.body.appendChild(panel);
@@ -413,9 +454,22 @@ function observeDynamicCards(store) {
 /* ------------------------------------------------------------------ */
 async function init() {
   if (!isLocalDev()) return;
-  if (!(await syncEndpointAvailable())) return;
-  const store = loadStore();
+
+  // The sync endpoint is the switch. Comments are only useful if the dev can read
+  // them, which means scripts/dev_server.py is serving; under `python3 -m
+  // http.server` the endpoint 404s and the tool would just add buttons nobody can
+  // act on. GitHub Pages never reaches here — isLocalDev already refuses — but
+  // this makes the gate about capability rather than hostname.
+  const remote = await pullFromServer();
+  if (remote === null) return;
+
   injectStyles();
+
+  // The file is the source of truth: emptying it clears the browser on next load,
+  // so addressed comments disappear without the reviewer doing anything.
+  const store = remote;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+
   attachToAllCards(store);
   buildExportPanel();
   observeDynamicCards(store);

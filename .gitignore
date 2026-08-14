@@ -3,3 +3,6 @@ tmp/
 __pycache__/
 .DS_Store
 risk_model.db
+
+# Local review comments (dev_server.py)
+.review-comments.json

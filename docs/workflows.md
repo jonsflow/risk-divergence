@@ -153,6 +153,17 @@ python3 -m pipeline.run generate   # SQLite → data/cache/*.json
 
 `scripts/refresh.sh` wraps these and loads `FRED_API_KEY` from `.env`.
 
+To serve the site, use `python3 scripts/dev_server.py`. It behaves like
+`python3 -m http.server` and additionally exposes `GET`/`POST /__review`, which
+`js/review.js` uses to mirror review comments into `.review-comments.json` at the
+repo root (gitignored). That file is the source of truth — emptying it clears the
+browser on next load — so comments never need exporting by hand.
+
+That endpoint is also the switch for the review UI. Under `python3 -m
+http.server` it 404s and the tool stays off entirely, rather than offering
+comment buttons whose output nobody can read. On GitHub Pages it never runs at
+all.
+
 Never commit the results. `data/` is written by the workflow only.
 
 ---
