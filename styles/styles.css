@@ -819,3 +819,167 @@ select:focus-visible,
 @media (max-width: 620px) {
   .fed-grid-4 { grid-template-columns: 1fr; }
 }
+
+/* Statement tracker comparison stats — one compact readable line at the top of
+   the document card. Not inside .stmt-release, which is an 11px uppercase eyebrow
+   and rendered these unreadable. */
+.stmt-stats {
+  display: flex;
+  gap: 22px;
+  align-items: baseline;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 10px;
+}
+.stmt-stats::-webkit-scrollbar { display: none; }
+.stmt-stat { flex: 0 0 auto; display: flex; align-items: baseline; gap: 6px; }
+.stmt-stat-k {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+.stmt-stat-v {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e9e9ea;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fed Chair — Treasury purchase pace. A bar per month; the claim is that the
+   bars shrink, so the bar is the only visual and everything else is numeric. */
+.pace-grid {
+  display: grid;
+  /* Bar track is capped rather than 1fr — at full card width the bars stretched
+     across the page and the numbers drifted far from their labels. */
+  grid-template-columns: auto minmax(0, 170px) auto auto auto;
+  justify-content: start;
+  gap: 6px 18px;
+  align-items: center;
+  font-size: 13px;
+}
+.pace-head {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  padding-bottom: 2px;
+}
+.pace-month { color: #a7a7ad; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pace-barwrap { min-width: 0; }   /* bar owns this track alone; value has its own */
+.pace-bar {
+  height: 14px;
+  background: #f97316;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  min-width: 2px;
+}
+.pace-barval { color: #e9e9ea; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.pace-num { text-align: right; font-variant-numeric: tabular-nums; color: #a7a7ad; white-space: nowrap; }
+.pace-mbs { color: #f59e0b; }
+.pace-verdict {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #2a2b2f;
+  font-size: 13px;
+  color: #a7a7ad;
+  line-height: 1.6;
+}
+.pace-verdict strong { color: #e9e9ea; font-variant-numeric: tabular-nums; }
+
+.timeline-toggle {
+  background: none;
+  border: 1px solid #2a2b2f;
+  color: #a7a7ad;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.timeline-toggle:hover { border-color: #4a4a52; color: #e9e9ea; }
+
+/* ----------------------------------------------------------------- glossary --
+   Collapsed by default so it costs one line until opened. */
+.glossary {
+  background: #17181b;
+  border: 1px solid #2a2b2f;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 18px;
+}
+.glossary-summary {
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a7a7ad;
+  list-style: none;
+}
+.glossary-summary::-webkit-details-marker { display: none; }
+.glossary-summary::before { content: '▸ '; color: #6b7280; }
+.glossary[open] .glossary-summary::before { content: '▾ '; }
+.glossary-summary:hover { color: #e9e9ea; }
+
+.glossary-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 12px 0 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.glossary-term { color: #e9e9ea; font-weight: 600; white-space: nowrap; }
+.glossary-term a { color: #7aa2f7; text-decoration: none; }
+.glossary-term a:hover { text-decoration: underline; }
+.glossary-def { margin: 0; color: #6b7280; }
+.glossary-full { color: #a7a7ad; }
+@media (max-width: 620px) {
+  .glossary-list { grid-template-columns: 1fr; gap: 2px; }
+  .glossary-def { margin-bottom: 8px; }
+}
+
+/* Inline glossary terms — hover reference, not a link. */
+.gloss {
+  /* Dotted in the link hue rather than grey: reads as "there is more here"
+     without reading as a link, since these do not navigate. */
+  border-bottom: 1px dotted rgba(122, 162, 247, 0.65);
+  cursor: help;
+  text-decoration: none;
+  position: relative;
+  transition: border-color .12s ease, color .12s ease;
+}
+.gloss:hover, .gloss:focus-visible {
+  border-bottom-color: #7aa2f7;
+  color: #ffffff;
+}
+.gloss::after {
+  content: attr(data-def);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  width: max-content;
+  max-width: 280px;
+  padding: 7px 9px;
+  background: #0f0f10;
+  border: 1px solid #2a2b2f;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  font-size: 11.5px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #e9e9ea;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+  pointer-events: none;
+}
+.gloss:hover::after, .gloss:focus-visible::after { opacity: 1; visibility: visible; }
+@media (prefers-reduced-motion: reduce) {
+  .gloss, .gloss::after { transition: none; }
+}

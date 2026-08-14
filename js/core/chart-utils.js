@@ -120,11 +120,14 @@ export function addZoomControls(chart, containerId, presets, defaultIdx = 0) {
       btns.forEach(b => { b.style.color = '#6b7280'; b.style.borderColor = 'transparent'; });
       btn.style.color = '#e9e9ea';
       btn.style.borderColor = '#4b5563';
-      if (p.years === null) {
+      if (p.years == null && p.months == null) {
         chart.timeScale().fitContent();
       } else {
         const d = new Date();
-        d.setFullYear(d.getFullYear() - p.years);
+        // `months` exists because setFullYear cannot take a fraction — a 6M
+        // preset written as years: 0.5 silently produces a nonsense date.
+        if (p.months != null) d.setMonth(d.getMonth() - p.months);
+        else                  d.setFullYear(d.getFullYear() - p.years);
         chart.timeScale().setVisibleRange({ from: d.toISOString().slice(0, 10), to: today });
       }
     });

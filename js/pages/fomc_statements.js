@@ -7,6 +7,7 @@ import { renderNav } from '../components/Navigation.js';
 import { fetchCache } from '../core/api.js';
 import { showLoadError }   from '../core/utils.js';
 import { renderFedStrip } from '../components/FedStrip.js';
+import { renderGlossary } from '../components/Glossary.js';
 
 // Word-diff is only attempted on paragraphs at least this similar; below the
 // threshold a del/ins pair reads better as a wholesale replacement.
@@ -169,30 +170,25 @@ function renderControls() {
 }
 
 function renderCards(base, compare, changes) {
-  const wcBase = wordCount(base[state.doc]);
-  const wcComp = wordCount(compare[state.doc]);
+  const el = document.getElementById('stmt-stats');
+  if (!el) return;
 
   const was = (oldV, newV) => oldV === newV
     ? esc(newV)
     : `<span class="stmt-was">${esc(oldV)}</span>${esc(newV)}`;
 
-  // Target range is deliberately absent — the shared Fed strip above the tab bar
-  // carries the current band. Everything here is specific to the two documents
-  // being compared.
-  const cards = [
-    ['Vote',          was(base.vote, compare.vote),                 `${esc(compare.chair)} chair`],
-    ['Dissents',      was(String(base.dissent_count), String(compare.dissent_count)),
-                      compare.dissent_direction ? `for a ${esc(compare.dissent_direction)}` : 'unanimous'],
-    ['Word Count',    was(String(wcBase), String(wcComp)),          state.doc === 'statement' ? 'Statement text' : 'Implementation note'],
-    ['Changes',       String(changes),                              changes === 1 ? 'edit in this document' : 'edits in this document'],
+  // Inline on the document header rather than a card of its own. Target range is
+  // absent deliberately — the shared Fed strip carries the current band.
+  const stats = [
+    ['Vote',     was(base.vote, compare.vote)],
+    ['Dissents', was(String(base.dissent_count), String(compare.dissent_count))],
+    ['Words',    was(String(wordCount(base[state.doc])), String(wordCount(compare[state.doc])))],
+    ['Changes',  String(changes)],
   ];
 
-  document.getElementById('stmt-cards').innerHTML = cards.map(([label, value, sub]) => `
-    <div class="card">
-      <div class="muted stmt-card-label">${label}</div>
-      <div class="stmt-card-value">${value}</div>
-      <div class="muted stmt-card-sub">${sub}</div>
-    </div>`).join('');
+  el.innerHTML = stats
+    .map(([k, v]) => `<span class="stmt-stat"><span class="stmt-stat-k">${k}</span><span class="stmt-stat-v">${v}</span></span>`)
+    .join('');
 }
 
 /**
@@ -224,9 +220,9 @@ function renderDoc(base, compare) {
     <p class="stmt-para${b.changed ? ' changed' : ''}${directives.has(b.text) ? ' directive' : ''}${b.only ? ' ' + b.only + '-only' : ''}">${b.html}</p>
   `).join('');
 
-  document.getElementById('stmt-release').innerHTML = `
-    <span>${state.doc === 'statement' ? 'For release at 2:00 p.m. EDT' : 'Decisions Regarding Monetary Policy Implementation'}</span>
-    <span><span class="stmt-was">${esc(base.label)}</span>${esc(compare.label)}</span>`;
+  document.getElementById('stmt-release-left').innerHTML =
+    `${state.doc === 'statement' ? 'For release at 2:00 p.m. EDT' : 'Decisions Regarding Monetary Policy Implementation'}`
+    + ` · <span class="stmt-was">${esc(base.label)}</span>${esc(compare.label)}`;
 
   return changes;
 }
@@ -289,6 +285,7 @@ function wire() {
 async function init() {
   renderNav();
   renderFedStrip();
+  renderGlossary();
   try {
     state.data = await fetchCache('config/fomc_meetings.json');
   } catch (err) {

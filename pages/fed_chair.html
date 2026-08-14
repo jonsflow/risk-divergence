@@ -46,7 +46,7 @@
   <!-- Policy Timeline -->
   <div class="card" style="margin-top:18px">
     <h2 style="font-size:15px;margin:0 0 12px 0;color:#a78bfa" id="timeline-title"></h2>
-    <div style="overflow-y:auto;max-height:340px">
+    <div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="border-bottom:1px solid #2a2a3e;color:#a7a7ad;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">
@@ -62,13 +62,20 @@
     </div>
   </div>
 
-  <!-- Chart 1: Balance Sheet — full width -->
-  <div class="card" style="margin-top:18px">
-    <div class="chart-title">Fed Balance Sheet ($B)</div>
-    <div class="muted" style="font-size:11px;margin-bottom:8px">
-        Purple = Total Assets (WALCL) · Orange dashed = Pre-COVID target (~$4.2T) · Markers: key era transitions
+  <!-- Balance sheet: level, and the purchase pace behind it -->
+  <div class="two-col-grid">
+    <div class="card">
+      <div class="chart-title">Fed Balance Sheet — Since 2025 ($B)</div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px">
+        Purple = Total Assets (WALCL) · Shaded bands mark the chair
       </div>
-    <div id="chart-balance-sheet" style="width:100%;height:300px"></div>
+      <div id="chart-balance-sheet" style="width:100%;height:260px"></div>
+    </div>
+    <div class="card">
+      <div class="chart-title">Treasury Purchase Pace — Last 6 Months</div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px" id="cap-pace"></div>
+      <div id="bs-pace"></div>
+    </div>
   </div>
 
   <!-- Charts 2+3: Inflation -->
@@ -100,6 +107,9 @@
       <div id="chart-reserves" style="width:100%;height:260px"></div>
     </div>
   </div>
+
+  <!-- Acronym glossary — collapsed, above attribution -->
+  <div id="glossary"></div>
 
   <!-- Footer -->
   <div class="card" style="margin-top:18px">

@@ -1,5 +1,5 @@
 {
-  "_comment": "Fed Chair page content. Hand-maintained; update after each FOMC or notable policy event. `doctrine` scores the framework the Chair campaigned on against the Committee's record — edit `status` and `record` rather than page copy. `timeline` is newest-last. Chair identity and meeting facts live in config/fomc_meetings.json.",
+  "_comment": "Fed Chair page content. Hand-maintained; update after each FOMC or notable policy event. `doctrine` scores the framework the Chair campaigned on against the Committee's record — edit `status` and `record` rather than page copy. `timeline` is newest-last in this file (append new events); the page renders it newest-first. Chair identity and meeting facts live in config/fomc_meetings.json.",
   "page": {
     "title": "Fed Chair Transition: {predecessor} → {name}",
     "intro": "{name} was confirmed as Fed Chair on {confirmed_long}, succeeding {predecessor}. He inherited a $6T+ balance sheet, inflation that had run above target for years, and a communications framework built on forward guidance he had spent a decade criticizing. This page tracks the four indicators that define his mandate, the record of policy decisions as it accumulates, and how the framework he campaigned on is holding up against what the Committee actually does.",
@@ -12,8 +12,9 @@
     },
     "captions": {
       "inflation": "Blue = Core PCE · Green = Core CPI · Red dashed = 2% hard target (no averaging under {last})",
-      "rates": "Pre-2016: FEDFUNDS · 2016+: EFFR · Key {predecessor_last}-era transitions marked",
-      "reserves": "Green = Reserves (WRESBAL) · Purple = O/N RRP (RRPONTSYD) · {last} goal: drain to \"scarce reserves\""
+      "rates": "EFFR — effective fed funds rate · Shaded bands mark the chair",
+      "reserves": "Green = Reserves (WRESBAL) · Purple = O/N RRP (RRPONTSYD) · {last} goal: drain to \"scarce reserves\"",
+      "pace": "Monthly change, not level. Bars are Treasury bills bought; MBS and Net are $B/month. Total assets keep rising because reserve management requires it — the pace is the part {last} controls. Incomplete current month excluded."
     }
   },
   "eras": [
@@ -42,7 +43,7 @@
         "Balance sheet = co-equal tool: aggressive QT as primary lever",
         "\"QT for cuts\": drain balance sheet, allow rate cuts simultaneously",
         "Focus on underlying/trend inflation, not transitory swings",
-        "Return to \"scarce reserves\" — reduce Fed footprint in markets",
+        "Ample-reserves regime under task-force review — advantages, disadvantages, alternatives",
         "Five task forces: monetary ops, communications, data sources, productivity, inflation causes"
       ],
       "quote": {
@@ -53,13 +54,27 @@
   ],
   "doctrine": [
     {
-      "label": "Balance Sheet (QT)",
-      "stated": "Aggressive QT as the primary policy lever; return to \"scarce reserves\" and a smaller Fed footprint.",
+      "label": "Balance Sheet",
+      "stated": "\"The balance sheet should be as small as practicable to conduct operations\" — interest rate policy as the primary lever, with the Fed running a footprint he has called \"trillions larger than it needs to be.\"",
       "status": {
-        "text": "Contradicted",
-        "color": "#ef4444"
+        "text": "Directionally consistent",
+        "color": "#f59e0b"
       },
-      "record": "The Desk is directed to buy Treasury bills to maintain <em>ample</em> reserves — the opposite framing, and the opposite direction. Balance sheet ~$6.7T with reserves ~$3.1T and growing."
+      "record": "Total assets are still rising — reserve management requires it, and the Fed states no endpoint for balance sheet reduction, only that reserves stay \"within the ample range.\" But the pace has roughly halved: Treasury purchases ran ~$53B/month across Feb–Apr and ~$29B/month across Jun–Jul, with MBS runoff continuing throughout. The ample-reserves regime that compels the buying is under review by his own balance sheet task force.",
+      "sources": [
+        {
+          "label": "Monetary Policy Report, Jul 2026",
+          "url": "https://www.federalreserve.gov/monetarypolicy/2026-07-mpr-part2.htm"
+        },
+        {
+          "label": "Warsh testimony, Jul 14 2026",
+          "url": "https://www.federalreserve.gov/newsevents/testimony/warsh20260714a.htm"
+        },
+        {
+          "label": "Axios: balance sheet battles",
+          "url": "https://www.axios.com/2026/05/20/warsh-federal-reserve-balance-sheet"
+        }
+      ]
     },
     {
       "label": "\"QT for Cuts\"",
@@ -68,7 +83,7 @@
         "text": "Untested",
         "color": "#a7a7ad"
       },
-      "record": "Neither leg has happened. No cut since December 2025, and the balance sheet is expanding rather than draining."
+      "record": "Neither leg has happened. No cut since December 2025, and the balance sheet is growing rather than draining — though the purchase pace is slowing."
     },
     {
       "label": "No More Dot Plot",

@@ -26,19 +26,28 @@
     <div class="muted">Loading latest meeting…</div>
   </div>
 
-  <!-- Rate corridor — where the policy rate actually sits -->
-  <div class="card" style="margin-top:18px">
-    <div class="chart-title">Rate Corridor — Last 2 Years</div>
+  <!-- Policy rate: target band, and where the effective rate sits -->
+  <div class="two-col-grid">
+  <div class="card">
+    <div class="chart-title">Rate Corridor</div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">
       Orange dashed = target band · White = EFFR · Blue = SOFR · Teal dotted = IORB
     </div>
-    <div id="chart-rate-corridor" style="width:100%;height:240px"></div>
+    <div id="chart-rate-corridor" style="width:100%;height:260px"></div>
+  </div>
+  <div class="card">
+    <div class="chart-title">Fed Funds Rate</div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px">
+      EFFR (daily) · Arrows mark FOMC decisions · Circle marks the change of chair
+    </div>
+    <div id="chart-rate-history" style="width:100%;height:260px"></div>
+  </div>
   </div>
 
   <!-- Decision Timeline -->
   <div class="card" style="margin-top:18px">
     <h2 style="font-size:16px;margin:0 0 12px 0;color:#f97316">FOMC Decision Timeline</h2>
-    <div style="overflow-y:auto;max-height:320px">
+    <div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="border-bottom:1px solid #2a2a3e;color:#a7a7ad;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">
@@ -55,47 +64,38 @@
     </div>
   </div>
 
-  <!-- Rate history — full history, FEDFUNDS + EFFR splice, decision markers -->
-  <div class="card" style="margin-top:18px">
-    <div class="chart-title">Fed Funds Rate History</div>
-    <div class="muted" style="font-size:11px;margin-bottom:8px">
-      Pre-2016: FEDFUNDS (monthly) · 2016+: EFFR (daily) · Arrows mark FOMC decisions
-    </div>
-    <div id="chart-rate-history" style="width:100%;height:300px"></div>
-  </div>
-
   <!-- Two-column: SEP dot plot + Overnight Reverse Repo -->
   <div class="two-col-grid">
     <div class="card">
       <div class="chart-title">SEP Median Rate Projection (Dot Plot)</div>
       <div class="muted" style="font-size:11px;margin-bottom:8px" id="sep-caption"></div>
-      <div id="chart-sep" style="width:100%;height:220px"></div>
+      <div id="chart-sep" style="width:100%;height:260px"></div>
     </div>
     <div class="card">
       <div class="chart-title">Overnight Reverse Repo (O/N RRP)</div>
       <div class="muted" style="font-size:11px;margin-bottom:8px">
         RRPONTSYD ($B) — excess cash parked at the Fed. Drain = liquidity moving back into markets.
       </div>
-      <div id="chart-rrpo" style="width:100%;height:220px"></div>
+      <div id="chart-rrpo" style="width:100%;height:260px"></div>
     </div>
   </div>
 
-  <!-- Balance sheet composition -->
-  <div class="card" style="margin-top:18px">
+  <!-- Balance sheet and the reserves it produces -->
+  <div class="two-col-grid">
+  <div class="card">
     <div class="chart-title">Fed Balance Sheet Composition ($B)</div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">
       Purple area = Total Assets (WALCL) · Blue = Treasuries (TREAST) · Amber = MBS (WSHOMCB)
     </div>
-    <div id="chart-balance-sheet" style="width:100%;height:280px"></div>
+    <div id="chart-balance-sheet" style="width:100%;height:260px"></div>
   </div>
-
-  <!-- Reserve Balances — full width -->
-  <div class="card" style="margin-top:18px">
+  <div class="card">
     <div class="chart-title">Reserve Balances at Federal Reserve Banks ($B)</div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">
       WRESBAL — banks' excess reserves held at the Fed. QE expands this; QT and RRP drain it.
     </div>
-    <div id="chart-wresbal" style="width:100%;height:220px"></div>
+    <div id="chart-wresbal" style="width:100%;height:260px"></div>
+  </div>
   </div>
 
   <!-- Note -->
@@ -105,6 +105,9 @@
       For market-implied probabilities, see <a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">CME FedWatch →</a>
     </div>
   </div>
+
+  <!-- Acronym glossary — collapsed, above attribution -->
+  <div id="glossary"></div>
 
   <div class="card" style="margin-top:18px">
     <div class="muted" style="text-align:center;font-size:12px">

@@ -21,9 +21,6 @@
     </div>
   </div>
 
-  <!-- Summary stat cards -->
-  <div class="risk-cards-container" id="stmt-cards"></div>
-
   <!-- Controls -->
   <div class="card" style="margin-top:18px">
     <div class="stmt-controls">
@@ -59,7 +56,10 @@
 
   <!-- Redline document -->
   <div class="card" style="margin-top:18px">
-    <div class="stmt-release muted" id="stmt-release"></div>
+    <div class="stmt-stats" id="stmt-stats"></div>
+    <div class="stmt-release muted" id="stmt-release">
+      <span id="stmt-release-left"></span>
+    </div>
     <div class="stmt-doc view-redline" id="stmt-doc">
       <div id="stmt-body"></div>
     </div>
@@ -78,6 +78,9 @@
       boilerplate are excluded.
     </div>
   </div>
+
+  <!-- Acronym glossary — collapsed, above attribution -->
+  <div id="glossary"></div>
 
   <div class="card" style="margin-top:18px">
     <div class="muted" style="text-align:center;font-size:12px">

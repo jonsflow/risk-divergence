@@ -67,7 +67,8 @@ HTML strings shown under the diff. Omit it and the section hides itself.
 
 ### 2. `config/fed_chair.json`
 
-Append a `timeline` row (newest last; `era` is `"powell"` or `"warsh"`).
+Append a `timeline` row to the end of the array (`era` is `"powell"` or `"warsh"`).
+The page renders newest-first, so appending is always correct.
 
 Update `doctrine` only where the record actually moved. Each item has `stated` (what
 the Chair committed to — rarely changes) and `status` + `record` (how it's going).
