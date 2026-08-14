@@ -89,6 +89,38 @@ code {
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.control-select:hover { border-color: #4a4a52; }
+
+/* ---- Interactive states -------------------------------------------------
+   The UA default focus ring is close to invisible on #0f0f10, so every
+   focusable control gets an explicit one. :focus-visible keeps it off for
+   mouse users. */
+.nav-link:focus-visible,
+.tab-btn:focus-visible,
+.control-select:focus-visible,
+.overview-cat-card:focus-visible,
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #7aa2f7;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Empty state — container loaded, nothing to show. */
+.state-empty {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }
 
 /* Mobile: full width controls */
@@ -476,6 +508,7 @@ code {
 .tab-bar { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; background: #17181b; border-radius: 10px; padding: 4px; margin-bottom: 16px; }
 .tab-bar::-webkit-scrollbar { display: none; }
 .tab-btn { padding: 6px 14px; border: none; background: transparent; color: #a7a7ad; cursor: pointer; border-radius: 7px; font-size: 13px; font-weight: 500; white-space: nowrap; transition: background 0.15s, color 0.15s; }
+.tab-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: #e9e9ea; }
 .tab-btn.active { background: #2a2b2f; color: #e9e9ea; }
 .tab-panel        { display: none; }
 .tab-panel.active { display: block; }
@@ -533,6 +566,162 @@ code {
 .overview-details-link { font-size: 11px; color: #4a7abf; cursor: pointer; }
 .overview-details-link:hover { color: #7aa2f7; }
 
+/* FOMC Statement Tracker */
+.stmt-card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.stmt-card-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.stmt-card-sub { font-size: 12px; }
+
+/* struck-through prior value, shown inline before the current one */
+.stmt-was {
+  color: #6b7280;
+  font-size: 0.72em;
+  font-weight: 500;
+  text-decoration: line-through;
+  margin-right: 0.45em;
+}
+
+.stmt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  align-items: flex-end;
+}
+.stmt-ctl { display: flex; flex-direction: column; gap: 6px; }
+.stmt-ctl-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* segmented control reuses .tab-bar/.tab-btn but must not inherit its
+   bottom margin or full-width stretch */
+.stmt-seg { margin-bottom: 0; background: #22242a; }
+
+.stmt-key {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: #a7a7ad;
+  padding-bottom: 7px;
+}
+.stmt-key span { display: inline-flex; align-items: center; gap: 5px; }
+.stmt-key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.stmt-key-add { background: rgba(16,185,129,0.25); border-bottom: 2px solid #10b981; }
+.stmt-key-del { background: rgba(239,68,68,0.20);  border-bottom: 2px solid #ef4444; }
+
+.stmt-release {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #2a2b2f;
+}
+.stmt-release .stmt-was { font-size: 1em; text-transform: none; letter-spacing: 0; }
+
+.stmt-doc { max-width: 68ch; }
+.stmt-para {
+  margin: 0 0 14px;
+  padding-left: 14px;
+  position: relative;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.stmt-para:last-child { margin-bottom: 0; }
+/* revision bar in the margin beside a changed passage */
+.stmt-para.changed::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 3px;
+  width: 2px;
+  background: #f97316;
+  border-radius: 1px;
+}
+.stmt-para.directive {
+  margin-left: 18px;
+  font-size: 14px;
+  color: #a7a7ad;
+  border-left: 1px solid #2a2b2f;
+  padding-left: 14px;
+}
+.stmt-para.directive.changed { padding-left: 14px; }
+.stmt-para.directive.changed::before { left: 0; }
+
+.stmt-doc ins,
+.stmt-doc del { text-decoration: none; }
+.stmt-doc.view-redline ins {
+  color: #10b981;
+  background: rgba(16,185,129,0.13);
+  border-bottom: 2px solid #10b981;
+  padding: 1px 2px;
+}
+.stmt-doc.view-redline del {
+  color: #ef4444;
+  background: rgba(239,68,68,0.10);
+  border-bottom: 2px solid #ef4444;
+  text-decoration: line-through;
+  padding: 1px 2px;
+}
+.stmt-doc.view-new del  { display: none; }
+.stmt-doc.view-base ins { display: none; }
+.stmt-doc.view-new .stmt-para.changed::before,
+.stmt-doc.view-base .stmt-para.changed::before { display: none; }
+/* a wholly added/removed paragraph has nothing to show in the other version */
+.stmt-doc.view-base .stmt-para.ins-only { display: none; }
+.stmt-doc.view-new  .stmt-para.del-only { display: none; }
+
+.stmt-notes-title {
+  font-size: 16px;
+  margin: 0 0 12px 0;
+  color: #f97316;
+}
+.stmt-note {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #a7a7ad;
+  max-width: 68ch;
+}
+.stmt-note:last-child { margin-bottom: 0; }
+.stmt-note strong { color: #e9e9ea; font-weight: 600; }
+
+.stmt-src-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.stmt-src-date {
+  color: #e9e9ea;
+  min-width: 100px;
+  font-variant-numeric: tabular-nums;
+}
+.stmt-src-row a { color: #7aa2f7; text-decoration: none; }
+.stmt-src-row a:hover { text-decoration: underline; }
+
+@media (max-width: 768px) {
+  .stmt-controls { flex-direction: column; align-items: stretch; }
+  .stmt-seg { overflow-x: auto; }
+}
+
 /* Stacked sparkline */
 .stacked-sparkline {
   width: 100%;
@@ -565,4 +754,68 @@ code {
 
 .legend-sym {
   font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- fed strip --
+   Shared policy readings above the Federal Reserve tab bar. One row on desktop,
+   two columns on narrow screens; deliberately smaller than a .card stat. */
+.fed-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: #2a2b2f;
+  border: 1px solid #2a2b2f;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 12px 0 0 0;
+}
+.fed-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: #17181b;
+  min-width: 0;
+}
+.fed-strip-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a7a7ad;
+}
+.fed-strip-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e9e9ea;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fed-strip-sub {
+  font-size: 10px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 640px) {
+  .fed-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ----------------------------------------------------------- fed 4-up grid --
+   Fed Chair scorecard and Framework vs. Record. Explicit 4 / 2 / 1 breakpoints
+   rather than auto-fit, so desktop always lands on a single row of four —
+   auto-fit with a 350px minimum drops to three-plus-one on common widths. */
+.fed-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+@media (max-width: 1100px) {
+  .fed-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 620px) {
+  .fed-grid-4 { grid-template-columns: 1fr; }
 }

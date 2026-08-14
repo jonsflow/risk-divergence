@@ -1,6 +1,8 @@
 // js/pages/fed_chair.js — Fed Chair Transition Dashboard (ES module).
 import { renderNav }       from '../components/Navigation.js';
-import { fetchFredBundle } from '../core/api.js';
+import { fetchFredBundle, fetchCache } from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
+import { renderFedStrip } from '../components/FedStrip.js';
 import {
   createFomcChart, fitWithRightPadding, addChartLegend, addZoomControls, hexToRgba, colors,
 } from '../core/chart-utils.js';
@@ -32,22 +34,9 @@ const ERA = {
   warshFirstFomc: '2026-06-17',
 };
 
-const TIMELINE = [
-  { date: '2018-02-05', event: 'Powell confirmed as Fed Chair',              context: 'Balance sheet ~$4.4T · Rate: 1.25–1.5%',              era: 'powell' },
-  { date: '2019-07-31', event: 'First Powell-era cut (−25bps)',               context: 'Insurance cut; trade war concerns',                    era: 'powell' },
-  { date: '2020-03-15', event: 'Emergency cuts to 0–0.25%; unlimited QE',    context: 'COVID shock; balance sheet begins surge toward $9T',   era: 'powell' },
-  { date: '2020-08-27', event: 'FAIT adopted at Jackson Hole',                context: 'Warsh later calls this the direct cause of 2022 surge', era: 'powell' },
-  { date: '2021-11-03', event: 'Taper announced; QE wind-down begins',       context: 'Balance sheet near $8.6T · CPI at 6.2%',              era: 'powell' },
-  { date: '2022-03-17', event: 'First hike of cycle (+25bps)',                context: 'Rate: 0.25–0.5% · Headline CPI above 8%',             era: 'powell' },
-  { date: '2022-06-01', event: 'QT begins ($47.5B/mo → $95B/mo cap)',        context: 'Drawdown starts from ~$9T peak',                       era: 'powell' },
-  { date: '2023-07-27', event: 'Last hike: 5.25–5.5% (22-year high)',        context: 'Core PCE still ~4.2% at peak rate',                    era: 'powell' },
-  { date: '2024-09-19', event: 'First cut of easing cycle (−50bps)',         context: 'Fed pivots; Core PCE still above 2%',                  era: 'powell' },
-  { date: '2025-08-22', event: 'FAIT abandoned — strict 2% target restored', context: 'Jackson Hole 2025; ahead of Warsh era',                era: 'powell' },
-  { date: '2026-04-21', event: 'Warsh Senate confirmation hearing',          context: '"QT for cuts" · eliminate dot plot · vows independence', era: 'warsh' },
-  { date: '2026-04-29', event: "Powell's last FOMC meeting",                 context: 'Rates held 3.50–3.75%. Final meeting under Powell.',      era: 'powell' },
-  { date: '2026-05-13', event: 'Warsh confirmed as Fed Chair',               context: 'Senate confirmation vote. Powell remains on Board of Governors.', era: 'warsh' },
-  { date: '2026-06-17', event: 'Warsh first FOMC: rates held, statement overhaul', context: 'Held 3.50–3.75% (12-0). Statement cut to ~130 words, forward guidance removed. Dot plot: 9/18 project ≥1 hike. Five task forces announced.', era: 'warsh' },
-];
+// Page content (doctrine scorecard + policy timeline) lives in
+// config/fed_chair.json so updating after a meeting is a data edit.
+let content = { page: {}, eras: [], doctrine: [], timeline: [] };
 
 const fedChairCharts = new Map();
 
@@ -172,9 +161,11 @@ function renderScorecard(data) {
 
   const metrics = [
     {
-      label: 'Fed Balance Sheet',
+      // Total assets is on the shared strip; what this page adds is the distance
+      // from the pre-COVID level Warsh treats as the floor.
+      label: 'Gap to Pre-COVID',
       raw: walcl?.length ? walcl[walcl.length - 1].value : null,
-      display: v => `$${(v / 1_000_000).toFixed(2)}T → target ~$4.2T (gap: $${((v / 1_000_000) - 4.2).toFixed(2)}T)`,
+      display: v => `+$${((v / 1_000_000) - 4.2).toFixed(2)}T`,
       warshTake: 'Pre-COVID level (~$4.2T) is the implicit floor — accelerating QT is his primary lever',
       status(v) {
         const t = v / 1_000_000;
@@ -239,10 +230,87 @@ function renderScorecard(data) {
   }).join('');
 }
 
+function esc(v) {
+  return String(v).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+/** {placeholder} substitution against the chair record from fomc_meetings.json. */
+function fill(tpl, chair) {
+  const longDate = iso => iso
+    ? new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : '';
+  const last = str => String(str || '').trim().split(/\s+/).pop();
+  const vals = {
+    ...chair,
+    last:            last(chair.name),
+    predecessor_last: last(chair.predecessor),
+    confirmed_long:  longDate(chair.confirmed),
+    sworn_in_long:   longDate(chair.sworn_in),
+  };
+  return String(tpl || '').replace(/\{(\w+)\}/g, (_, k) => esc(vals[k] ?? ''));
+}
+
+function renderHeader(chair) {
+  const page = content.page || {};
+  const set = (id, tpl) => {
+    const el = document.getElementById(id);
+    if (el && tpl) el.textContent = fill(tpl, chair);
+  };
+  set('page-title', page.title);
+  set('page-intro', page.intro);
+  set('scorecard-title', page.sections?.scorecard);
+  set('doctrine-sub',   page.sections?.doctrine_sub);
+  set('timeline-title', page.sections?.timeline);
+
+  for (const [key, tpl] of Object.entries(page.captions || {})) {
+    set(`cap-${key.replace(/_/g, '-')}`, tpl);
+  }
+
+  if (page.doc_title) document.title = fill(page.doc_title, chair);
+  const desc = document.querySelector('meta[name="description"]');
+  if (desc && page.description) desc.setAttribute('content', fill(page.description, chair));
+}
+
+function renderEras() {
+  const host = document.getElementById('eras-container');
+  if (!host) return;
+  host.innerHTML = content.eras.map(e => `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:4px;height:44px;background:${esc(e.color)};border-radius:2px;flex-shrink:0"></div>
+        <div>
+          <div style="font-size:16px;font-weight:bold;color:${esc(e.color)}">${esc(e.name)}${e.period ? ` (${esc(e.period)})` : ''}</div>
+          <div class="muted" style="font-size:11px;margin-top:2px">${esc(e.subtitle || '')}</div>
+        </div>
+      </div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:2;color:#e9e9ea">
+        ${(e.bullets || []).map(b => `<li>${esc(b)}</li>`).join('')}
+      </ul>
+      ${e.quote ? `<div style="margin-top:14px;padding:10px 12px;background:#1a1a2e;border-left:3px solid ${esc(e.color)};border-radius:0 4px 4px 0;font-size:12px;color:#a7a7ad;font-style:italic;line-height:1.6">
+        "${esc(e.quote.text)}"
+        <span style="display:block;margin-top:4px;font-style:normal;color:#6b7280">— ${esc(e.quote.attribution)}</span>
+      </div>` : ''}
+    </div>`).join('');
+}
+
+function renderDoctrine() {
+  const container = document.getElementById('doctrine-container');
+  if (!container) return;
+  container.innerHTML = content.doctrine.map(d => `
+    <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.05em">${d.label}</div>
+        <div style="background:${d.status.color}22;color:${d.status.color};font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap">${d.status.text}</div>
+      </div>
+      <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px"><strong style="color:#a7a7ad">Stated:</strong> ${d.stated}</div>
+      <div style="font-size:13px;color:#e9e9ea;line-height:1.6"><strong style="color:#a7a7ad;font-size:12px">Record:</strong> ${d.record}</div>
+    </div>`).join('');
+}
+
 function renderTimeline() {
   const tbody = document.getElementById('timeline-tbody');
   if (!tbody) return;
-  tbody.innerHTML = TIMELINE.map(ev => {
+  tbody.innerHTML = content.timeline.map(ev => {
     const isWarsh = ev.era === 'warsh';
     return `
       <tr style="border-bottom:1px solid #1e1e2e">
@@ -501,6 +569,26 @@ function renderReservesChart(data) {
 
 async function init() {
   renderNav();
+  renderFedStrip();
+
+  // Narrative content is independent of the FRED bundle; render it as soon as it
+  // arrives rather than gating it behind the chart data.
+  let chair = {};
+  try {
+    const [c, meetings] = await Promise.all([
+      fetchCache('config/fed_chair.json'),
+      fetchCache('config/fomc_meetings.json'),
+    ]);
+    content = c;
+    chair   = meetings.chair || {};
+  } catch (err) {
+    console.error('Fed Chair content failed to load:', err);
+  }
+  renderHeader(chair);
+  renderEras();
+  renderDoctrine();
+  renderTimeline();
+
   try {
     const bundle = await fetchFredBundle();
     const data   = {};
@@ -519,7 +607,6 @@ async function init() {
     if (metaEl) metaEl.textContent = parts.length ? parts.join(' · ') : 'Data loaded';
 
     renderScorecard(data);
-    renderTimeline();
 
     for (const [fn, args] of [
       [renderBalanceSheetChart, [data]],
@@ -531,9 +618,7 @@ async function init() {
       try { fn(...args); } catch (e) { console.error(`${fn.name}:`, e); }
     }
   } catch (err) {
-    console.error('FedChair init error:', err);
-    const el = document.getElementById('meta');
-    if (el) el.textContent = `Error: ${err.message}`;
+    showLoadError(err, 'Fed Chair');
   }
 }
 

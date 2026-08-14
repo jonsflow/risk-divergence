@@ -1,6 +1,7 @@
 // js/pages/trend_structure.js — Trend Structure page (ES module).
 import { renderNav }          from '../components/Navigation.js';
 import { fetchTrendStructure } from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
 import { colors }             from '../core/chart-utils.js';
 
 let cache = null;
@@ -126,9 +127,7 @@ async function init() {
     initToggle();
     renderTimeframe('daily');
   } catch (err) {
-    console.error('Failed to load trend structure cache:', err);
-    const metaEl = document.getElementById('meta');
-    if (metaEl) metaEl.textContent = 'Error loading data';
+    showLoadError(err, 'Trend structure');
   }
 }
 

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fed Chair Transition — Powell → Warsh</title>
+  <title>Fed Chair</title>
   <base href="../">
   <link rel="stylesheet" href="styles/styles.css">
-  <meta name="description" content="Fed Chair transition dashboard — Powell vs Warsh policy framework, balance sheet, inflation, and rate indicators." />
+  <meta name="description" content="Fed Chair dashboard." />
 </head>
 <body>
   <nav class="site-nav"></nav>
@@ -15,100 +15,37 @@
   <div class="card">
     <div class="header-section">
       <div>
-        <h1 style="margin:0 0 4px 0">Fed Chair Transition: Powell → Warsh</h1>
+        <h1 style="margin:0 0 4px 0" id="page-title">Fed Chair</h1>
         <div class="muted" id="meta">Loading data…</div>
       </div>
     </div>
-    <div style="margin-top:12px;font-size:13px;color:#a7a7ad;line-height:1.6">
-      Kevin Warsh was confirmed as Fed Chair on May 13, 2026, succeeding Jerome Powell. His first FOMC meeting
-      (June 17, 2026) marked the opening of a new policy regime: rates held at 3.50–3.75%, the policy statement
-      overhauled to ~130 words with forward guidance removed entirely, and the dot plot showing a hawkish tilt
-      for the first time since 2023 (9 of 18 members projecting at least one hike before year-end).
-      This page tracks the four indicators that define his mandate.
-    </div>
+    <div style="margin-top:12px;font-size:13px;color:#a7a7ad;line-height:1.6" id="page-intro"></div>
   </div>
 
-  <!-- Philosophy comparison -->
-  <div class="two-col-grid">
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="width:4px;height:44px;background:#7aa2f7;border-radius:2px;flex-shrink:0"></div>
-        <div>
-          <div style="font-size:16px;font-weight:bold;color:#7aa2f7">Powell Era (2018–2026)</div>
-          <div class="muted" style="font-size:11px;margin-top:2px">Flexible Average Inflation Targeting</div>
-        </div>
-      </div>
-      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:2;color:#e9e9ea">
-        <li>FAIT (2020–2025): deliberately allowed inflation to run above 2%</li>
-        <li>Quarterly SEP + dot plot as primary forward guidance tool</li>
-        <li>Balance sheet used as secondary stimulus lever (QE)</li>
-        <li>Gradual QT from ~$9T peak at ~$95B/month cap</li>
-        <li>Strict 2% target restored at Jackson Hole Aug 2025</li>
-        <li>Reactive: cut 50bps Sep 2024 despite Core PCE above 2%</li>
-      </ul>
-    </div>
+  <!-- Chair frameworks — rendered from config/fed_chair.json -->
+  <div class="two-col-grid" id="eras-container"></div>
 
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="width:4px;height:44px;background:#f97316;border-radius:2px;flex-shrink:0"></div>
-        <div>
-          <div style="font-size:16px;font-weight:bold;color:#f97316">Warsh Framework (2026–)</div>
-          <div class="muted" style="font-size:11px;margin-top:2px">"Inflation is a choice"</div>
-        </div>
-      </div>
-      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:2;color:#e9e9ea">
-        <li>Strict 2% target — no averaging, no overshoot tolerance</li>
-        <li>Eliminate dot plot and quarterly forward guidance</li>
-        <li>Balance sheet = co-equal tool: aggressive QT as primary lever</li>
-        <li>"QT for cuts": drain balance sheet, allow rate cuts simultaneously</li>
-        <li>Focus on underlying/trend inflation, not transitory swings</li>
-        <li>Return to "scarce reserves" — reduce Fed footprint in markets</li>
-        <li>June 17: statement cut to ~130 words, forward guidance eliminated</li>
-        <li>Five task forces: monetary ops, communications, data sources, productivity, inflation causes</li>
-      </ul>
-      <div style="margin-top:14px;padding:10px 12px;background:#1a1a2e;border-left:3px solid #f97316;border-radius:0 4px 4px 0;font-size:12px;color:#a7a7ad;font-style:italic;line-height:1.6">
-        "If the Fed had kept a smaller balance sheet… I think interest rates could be lower, inflation could be better and the economy could be stronger."
-        <span style="display:block;margin-top:4px;font-style:normal;color:#6b7280">— Kevin Warsh, Senate Banking Committee, April 21, 2026</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Warsh Scorecard -->
+  <!-- Scorecard — rendered from config -->
   <div style="margin-top:18px">
-    <div style="font-size:11px;font-weight:600;color:#a7a7ad;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">
-      Warsh Scorecard — What He Inherits
+    <div style="font-size:11px;font-weight:600;color:#a7a7ad;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px" id="scorecard-title">
     </div>
-    <div class="risk-cards-container" id="scorecard-container">
+    <div class="fed-grid-4" id="scorecard-container">
       <div class="card" style="text-align:center;padding:24px"><span class="muted">Loading…</span></div>
     </div>
   </div>
 
   <!-- What to expect card -->
   <div class="card" style="margin-top:18px">
-    <h2 style="font-size:15px;margin:0 0 14px 0;color:#f97316">What to Expect Under Warsh</h2>
-    <div class="two-col-grid" style="gap:12px;margin-top:0">
-      <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
-        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Balance Sheet (QT)</div>
-        <div style="font-size:13px;color:#e9e9ea;line-height:1.6">Expect QT to accelerate beyond Powell's gradual pace. Balance sheet reduction becomes a primary policy lever, not a background process running on autopilot.</div>
-      </div>
-      <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
-        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">"QT for Cuts"</div>
-        <div style="font-size:13px;color:#e9e9ea;line-height:1.6">Rate cuts tied to balance sheet shrinkage — not just inflation data. As QE-era liquidity drains, Warsh believes short rates can fall without reigniting inflation.</div>
-      </div>
-      <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
-        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">No More Dot Plot</div>
-        <div style="font-size:13px;color:#e9e9ea;line-height:1.6">The quarterly Summary of Economic Projections (dot plot) is expected to be eliminated at or shortly after his first FOMC meeting. Markets lose a major rate-path signal.</div>
-      </div>
-      <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
-        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Inflation Measurement</div>
-        <div style="font-size:13px;color:#e9e9ea;line-height:1.6">Focus on underlying/trend inflation rather than headline prints driven by geopolitical or one-time factors. Skeptical of "transitory" framing that defined 2021.</div>
-      </div>
+    <h2 style="font-size:15px;margin:0 0 4px 0;color:#f97316">Framework vs. Record</h2>
+    <div class="muted" style="font-size:12px;margin-bottom:14px" id="doctrine-sub"></div>
+    <div class="fed-grid-4" style="gap:12px;margin-top:0" id="doctrine-container">
+      <div class="muted" style="padding:12px">Loading…</div>
     </div>
   </div>
 
   <!-- Policy Timeline -->
   <div class="card" style="margin-top:18px">
-    <h2 style="font-size:15px;margin:0 0 12px 0;color:#a78bfa">Policy Timeline: What Warsh Inherits</h2>
+    <h2 style="font-size:15px;margin:0 0 12px 0;color:#a78bfa" id="timeline-title"></h2>
     <div style="overflow-y:auto;max-height:340px">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -127,10 +64,10 @@
 
   <!-- Chart 1: Balance Sheet — full width -->
   <div class="card" style="margin-top:18px">
-    <div class="chart-title">Fed Balance Sheet — Warsh's Primary Target ($B)</div>
+    <div class="chart-title">Fed Balance Sheet ($B)</div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">
-      Purple = Total Assets (WALCL) · Orange dashed = Pre-COVID target (~$4.2T) · Markers: key era transitions
-    </div>
+        Purple = Total Assets (WALCL) · Orange dashed = Pre-COVID target (~$4.2T) · Markers: key era transitions
+      </div>
     <div id="chart-balance-sheet" style="width:100%;height:300px"></div>
   </div>
 
@@ -138,9 +75,7 @@
   <div class="two-col-grid">
     <div class="card">
       <div class="chart-title">Inflation vs. Strict 2% Target (YoY%)</div>
-      <div class="muted" style="font-size:11px;margin-bottom:8px">
-        Blue = Core PCE · Green = Core CPI · Red dashed = 2% hard target (no averaging under Warsh)
-      </div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px" id="cap-inflation"></div>
       <div id="chart-inflation" style="width:100%;height:260px"></div>
     </div>
     <div class="card">
@@ -156,16 +91,12 @@
   <div class="two-col-grid">
     <div class="card">
       <div class="chart-title">Fed Funds Rate History</div>
-      <div class="muted" style="font-size:11px;margin-bottom:8px">
-        Pre-2016: FEDFUNDS · 2016+: EFFR · Key Powell-era transitions marked
-      </div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px" id="cap-rates"></div>
       <div id="chart-rates" style="width:100%;height:260px"></div>
     </div>
     <div class="card">
       <div class="chart-title">Reserve Balances + O/N RRP — Last 5 Years ($B)</div>
-      <div class="muted" style="font-size:11px;margin-bottom:8px">
-        Green = Reserves (WRESBAL) · Purple = O/N RRP (RRPONTSYD) · Warsh goal: drain to "scarce reserves"
-      </div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px" id="cap-reserves"></div>
       <div id="chart-reserves" style="width:100%;height:260px"></div>
     </div>
   </div>

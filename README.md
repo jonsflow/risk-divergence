@@ -88,7 +88,7 @@ FRED API ──────┘                     ├─► data/*.csv (mirrore
   - `run.py` — CLI: `seed` / `fetch` / `generate`
 - **`js/`** — ES module frontend (`pages/`, `core/`, `components/`); no build step.
 - **`config/`** — JSON config for symbols, pairs, FRED series, trading watchlist.
-- **`scripts/`** — legacy standalone scripts (`fetch_data.py`, `generate_cache.py`, `fetch_fred.py`). Superseded by `pipeline/` but kept for one-off tasks.
+- **`scripts/`** — legacy standalone scripts (`fetch_data.py`, `generate_cache.py`). Superseded by `pipeline/` but kept for one-off tasks. `refresh.sh` is current and wraps the pipeline.
 
 ---
 

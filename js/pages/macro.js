@@ -1,6 +1,7 @@
 // js/pages/macro.js — Macro Model page (ES module).
 import { renderNav }          from '../components/Navigation.js';
 import { fetchMacro, fetchCache } from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
 import { last }               from '../core/chart-utils.js';
 
 let LOOKBACK_DAYS  = 20;
@@ -516,8 +517,17 @@ function renderOverviewTab(cache) {
       </div>
     `;
 
+    // The card is the click target, so it needs a keyboard path too — a bare
+    // div with a click handler is unreachable by tab.
     card.style.cursor = 'pointer';
-    card.addEventListener('click', () => switchTab(catData.id));
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `${catConfig.name} — view detail`);
+    const open = () => switchTab(catData.id);
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
     grid.appendChild(card);
 
     requestAnimationFrame(() => {
@@ -636,8 +646,7 @@ async function init() {
       await loadAndRender();
     });
   } catch (err) {
-    document.getElementById('meta').textContent = 'Cache missing — run: python3 generate_cache.py';
-    console.error(err);
+    showLoadError(err, 'Macro model');
   }
 }
 

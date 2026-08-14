@@ -6,18 +6,18 @@ Detailed documentation for each page, renderer, and algorithm in the Risk Diverg
 
 ## Pages
 
-### 1. Divergence (`index.html` + `app.js`)
+### 1. Divergence (`index.html` + `js/pages/divergence.js`)
 
 Displays 6 asset-pair divergence signals. Each pair gets a card with trend labels, a signal badge, and a TradingView price chart with pivot markers.
 
-**Data flow**: `fetch_data.py` → `data/{sym}.csv` → `generate_cache.py` → `data/cache/divergence_{lookback}_{mode}_{swing}.json` → `app.js` renders
+**Data flow**: `pipeline.run fetch` → SQLite → `divergence_generator.py` → `data/cache/divergence_{lookback}_{mode}_{swing}.json` → `js/pages/divergence.js` renders
 
 **Dropdowns** (each triggers a new cache file fetch, no recomputation):
 - Lookback: 20 / 50 / 100 days
 - Pivot mode: `recent` | `highest` | `highest-to-current`
 - Swing window: auto or manual day count
 
-**Key functions in `app.js`**:
+**Key functions in `js/pages/divergence.js`**:
 - `loadAndRender()` — fetches cache JSON, calls `applyDivergenceCache()`
 - `applyDivergenceCache()` — populates trend/signal DOM, calls `renderChartTV()` per pair
 - `renderChartTV()` — TradingView Lightweight Charts area series + MA line + pivot trend line
@@ -26,15 +26,15 @@ Displays 6 asset-pair divergence signals. Each pair gets a card with trend label
 
 ---
 
-### 2. Macro Model (`macro.html` + `macro_app.js`)
+### 2. Macro Model (`pages/macro.html` + `js/pages/macro.js`)
 
 Displays 40+ assets across 8 categories. Each asset gets a card showing price, % change, MA signal (above/below), and an SVG sparkline. A breadth score and regime reading sit at the top.
 
-**Data flow**: `fetch_data.py` → `data/{sym}.csv` → `generate_cache.py` → `data/cache/macro_{lookback}_{ma}.json` → `macro_app.js` renders
+**Data flow**: `pipeline.run fetch` → SQLite → `macro_generator.py` → `data/cache/macro_{lookback}_{ma}.json` → `js/pages/macro.js` renders
 
 **Dropdowns**: Lookback (20/50/100d), MA Period (20/50/100d)
 
-**Key functions in `macro_app.js`**:
+**Key functions in `js/pages/macro.js`**:
 - `loadAndRender()` — fetches macro cache, calls `applyMacroCache()`
 - `applyMacroCache()` — renders regime score, breadth bars, and all asset cards
 - `renderAssetCard()` — builds `.asset-card` with sparkline, price, change, signal badge
@@ -43,11 +43,11 @@ Displays 40+ assets across 8 categories. Each asset gets a card showing price, %
 
 ---
 
-### 3. Credit Spread (`credit.html` + `credit_app.js`)
+### 3. Credit Spread (`pages/credit.html` + `js/pages/credit.js`)
 
 Single-series page for HY OAS Spread (`BAMLH0A0HYM2`). Shows signal (Risk On/Off), current spread, percentile rank, and a full TradingView chart with MA overlay.
 
-**Data flow**: `fetch_fred.py` → `data/fred/BAMLH0A0HYM2.csv` → `credit_app.js` computes client-side
+**Data flow**: `pipeline.run fetch` → SQLite → `data/fred/fred_cache.json` → `js/pages/credit.js` computes client-side
 
 **Analysis (all client-side)**:
 - `computeMA(points, period)` — simple moving average
@@ -60,11 +60,11 @@ Single-series page for HY OAS Spread (`BAMLH0A0HYM2`). Shows signal (Risk On/Off
 
 ---
 
-### 4. Gov Data (`gov_data.html` + `gov_data_app.js`)
+### 4. Gov Data (`pages/gov_data.html` + `js/pages/gov_data.js`)
 
 Overview of 20 FRED economic series across 4 categories. Each series gets a card with current value, a frequency-aware change figure with label, latest data date, and an SVG sparkline.
 
-**Data flow**: `fetch_fred.py` → `data/fred/{SERIES_ID}.csv` → `gov_data_app.js` computes client-side
+**Data flow**: `pipeline.run fetch` → SQLite → `data/fred/fred_cache.json` → `js/pages/gov_data.js` computes client-side
 
 **Categories and series**: see `fred_config.json`
 
@@ -149,10 +149,10 @@ Single `styles.css` file shared across all pages. Key reusable classes:
 ## Config Files
 
 ### `config.json`
-Controls divergence pairs and Yahoo Finance symbols. Defaults for dropdowns. Adding a pair requires only editing this file + re-running `generate_cache.py`.
+Controls divergence pairs and Yahoo Finance symbols. Defaults for dropdowns. Adding a pair requires only editing this file + re-running `python3 -m pipeline.run generate`.
 
 ### `macro_config.json`
-Controls macro model categories (Equities, Bonds, Commodities, etc.) and their assets. Adding an asset requires editing this + `fetch_data.py` + re-running `generate_cache.py`.
+Controls macro model categories (Equities, Bonds, Commodities, etc.) and their assets. Adding an asset requires editing this file, then re-running fetch and generate.
 
 ### `fred_config.json`
-Controls Gov Data categories and FRED series. `fetch_fred.py` derives a flat series list from `categories` automatically. Adding a series requires editing this + re-running `fetch_fred.py`.
+Controls Gov Data categories and FRED series. `FREDFetcher` derives a flat series list from `categories` automatically. Adding a series requires editing this file only.

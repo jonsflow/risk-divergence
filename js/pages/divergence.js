@@ -1,6 +1,7 @@
 // js/pages/divergence.js — Divergence Dashboard page (ES module).
 import { renderNav }                               from '../components/Navigation.js';
 import { fetchDivergence, fetchCache }             from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
 import {
   createDashboardChart, hexToRgba, fitWithRightPadding,
   addChartLegend, last, colors,
@@ -289,8 +290,7 @@ async function init() {
       loadAndRender();
     });
   } catch (err) {
-    document.getElementById('meta').textContent = 'Cache missing — run: python3 generate_cache.py';
-    console.error(err);
+    showLoadError(err, 'Divergence');
   }
 }
 

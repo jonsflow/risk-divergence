@@ -1,231 +1,170 @@
 # GitHub Actions Workflows
 
-This document covers every workflow in `.github/workflows/`, how they chain together, what they produce, and how to operate them.
+Every workflow in `.github/workflows/`, what it produces, and how to operate it.
 
 ---
 
 ## Overview
 
-The site runs entirely on static files committed to `main`. GitHub Actions keeps the data fresh automatically — no server, no database. There are four workflows:
+The site is static files committed to `main`. Actions keeps the data fresh — no
+server, no hosted database. Three workflows:
 
 | Workflow | File | Trigger | Writes |
 |----------|------|---------|--------|
-| Update Yahoo Finance | `update-data.yml` | Daily 21:00 UTC weekdays | `data/*.csv`, `data/last_updated.txt` |
-| Generate Cache | `generate-cache.yml` | After Yahoo update succeeds | `data/cache/*.json` |
-| Update FRED | `update-fred.yml` | Daily 22:00 UTC weekdays | `data/fred/*.csv`, `data/fred/fred_cache.json` |
-| PR Validation | `pr-validation.yml` | Pull requests to `main` | Nothing (read-only checks) |
+| Update market data v2 | `update-data-v2.yml` | 09:00 and 16:15 ET, weekdays | `data/cache/`, `data/fred/fred_cache.json`, `data/last_updated.txt` |
+| Backfill Trading History | `backfill-trading-history.yml` | Manual only | `data/cache/` dated trading files |
+| PR Validation | `pr-validation.yml` | Pull requests to `main` | Nothing (read-only) |
+
+A single workflow now does fetch and generate in one job. The older split —
+`update-data.yml`, `generate-cache.yml`, `update-fred.yml` chained by
+`workflow_run` — is gone, along with the standalone scripts it drove.
 
 ---
 
-## Data Flow Diagram
+## Data flow
 
 ```
-                    21:00 UTC (weekdays)
-                           │
-                    ┌──────▼───────┐
-                    │  update-data │  fetch_data.py
-                    │  (Yahoo)     │  yfinance API
-                    └──────┬───────┘
-                           │ on: workflow_run completed + success
-                           │
-                    ┌──────▼───────┐
-                    │  generate-   │  generate_cache.py
-                    │  cache       │  all analysis in Python
-                    └──────┬───────┘
-                           │ commits data/cache/*.json
-                           │
-                    ┌──────▼───────┐
-                    │   main       │  GitHub Pages serves
-                    │   branch     │  static files
-                    └──────┬───────┘
-                           │
-                    22:00 UTC (weekdays, independent)
-                           │
-                    ┌──────▼───────┐
-                    │  update-fred │  fetch_fred.py
-                    │  (FRED API)  │  fredapi + python-dotenv
-                    └─────────────┘
-                      commits data/fred/*.csv
-                              + data/fred/fred_cache.json
+        09:00 ET and 16:15 ET (weekdays)
+                    │
+          ┌─────────▼──────────┐
+          │  update-data-v2    │
+          │                    │
+          │  seed     CSVs   → SQLite   (Yahoo daily/hourly only)
+          │  fetch    Yahoo  → SQLite
+          │           FRED   → SQLite
+          │  generate SQLite → data/cache/*.json
+          │                    data/fred/fred_cache.json
+          └─────────┬──────────┘
+                    │ commits to main
+          ┌─────────▼──────────┐
+          │  GitHub Pages      │  serves static files
+          └────────────────────┘
 
   Pull requests:
     ┌──────────────────┐
-    │  pr-validation   │  JSON lint · config structure · Python syntax
+    │  pr-validation   │  config structure · Python syntax
     └──────────────────┘
 ```
 
----
-
-## Concurrency Groups
-
-Two concurrency groups prevent git push conflicts:
-
-| Group | Workflows |
-|-------|-----------|
-| `update-data` | `update-data.yml`, `update-fred.yml` |
-| `generate-cache` | `generate-cache.yml` |
-
-With `cancel-in-progress: false`, queued jobs wait rather than being dropped. This means if Yahoo and FRED workflows happen to queue simultaneously, they serialize: one pushes, the other pulls → pushes cleanly.
+`risk_model.db` is gitignored, so CI starts from an empty database every run.
+Both fetchers pull full history rather than increments, so a run is
+self-sufficient — nothing carries over between runs except the committed JSON.
 
 ---
 
-## Workflow Reference
+## 1. `update-data-v2.yml`
 
-### 1. `update-data.yml` — Yahoo Finance
+**Trigger:** `workflow_dispatch` plus two crons.
 
-**Trigger:** `cron: "0 21 * * 1-5"` (21:00 UTC, Mon–Fri) + `workflow_dispatch`
-
-**What it does:**
-1. Checks out `main`
-2. Installs `yfinance`
-3. `git pull --rebase origin main` — picks up any FRED push that happened concurrently
-4. Runs `python3 fetch_data.py` — fetches hourly and daily OHLCV CSVs for all symbols in `config.json` and `macro_config.json`
-5. Stages `data/*.csv` and `data/last_updated.txt`
-6. Commits only if there are changes, pushes
-
-**Output files:**
-- `data/{symbol}.csv` — daily OHLCV, max history available
-- `data/{symbol}_hourly.csv` — hourly OHLCV, last ~1 month
-- `data/last_updated.txt` — UTC timestamp of the run (displayed in page headers)
-
-**Concurrency group:** `update-data`
-
----
-
-### 2. `generate-cache.yml` — Analysis Cache
-
-**Trigger:** `on: workflow_run` (fires when `update-data.yml` completes with `conclusion == 'success'`) + `workflow_dispatch`
-
-The `if:` condition prevents the job from running if Yahoo Finance failed:
 ```yaml
-if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+- cron: "0 13 * * 1-5"    # 09:00 ET — pre-market
+- cron: "15 20 * * 1-5"   # 16:15 ET — post-close
 ```
 
-**What it does:**
-1. Checks out `main`
-2. `git pull --rebase origin main` — ensures freshly committed CSVs are present
-3. Runs `python3 generate_cache.py` — reads all CSVs and runs pivot detection, divergence scoring, macro breadth analysis for every combination of (lookback × pivot mode × swing window)
-4. Stages `data/cache/`
-5. Commits only if there are changes, pushes
+GitHub cron is UTC-only, so there is one cron per ET slot and both are edited by
+hand at each DST changeover — currently set for EDT; shift to `14:00` / `21:15`
+UTC when clocks go back. A multi-cron plus wall-time-gate version was tried and
+removed as too complex.
 
-**Output files:**
+**Runs fire late.** The 09:00 slot has committed as late as 11:10 ET. Never assume
+a cache was written when its cron says.
 
-| Pattern | Used by |
-|---------|---------|
-| `data/cache/divergence_{lookback}_{mode}_{swing}.json` | Divergence page (`app.js`) |
-| `data/cache/macro_{lookback}_{ma}.json` | Macro Model page (`macro_app.js`) |
+**Steps:**
 
-Each file is a complete pre-computed snapshot. JS fetches the relevant file based on the dropdown selection and renders — no computation in the browser.
+1. Checkout, Python 3.11, `pip install yfinance python-dotenv fredapi`
+2. `git pull --rebase` — picks up anything pushed since checkout
+3. `python3 -m pipeline.run seed` — Yahoo daily/hourly CSVs → SQLite
+4. `python3 -m pipeline.run fetch` — Yahoo *and* FRED → SQLite
+5. `python3 -m pipeline.run generate` — SQLite → all cache JSON
+6. Commit and push, only if something changed
 
-**Why a separate workflow?**
-`generate_cache.py` is the computational bottleneck — it runs all pivot analysis for every parameter combination. Separating it means a failed Yahoo fetch doesn't waste compute time, and the cache is always consistent with the data files that just landed.
+Two things about step 4 that the step name hides. It is labelled "Fetch Yahoo
+Finance data → SQLite", but `cmd_fetch` runs `YahooFetcher` **and**
+`FREDFetcher`; it is the only step that reaches the FRED API, and the only step
+given `FRED_API_KEY`. And `cmd_fetch` catches `EnvironmentError` from the FRED
+fetcher and prints "FRED fetch skipped" to stderr without failing — so a missing
+key leaves the job green with no fresh FRED data.
 
-**Concurrency group:** `generate-cache` (separate from `update-data` — these two can overlap safely since they write to different paths)
-
----
-
-### 3. `update-fred.yml` — FRED Data
-
-**Trigger:** `cron: "0 22 * * 1-5"` (22:00 UTC, Mon–Fri, 1 hour after Yahoo) + `workflow_dispatch`
-
-**Required secret:** `FRED_API_KEY` — must be added under repository Settings → Secrets → Actions → New repository secret.
-
-**What it does:**
-1. Checks out `main`
-2. Installs `fredapi` and `python-dotenv`
-3. `git pull --rebase origin main`
-4. Runs `python fetch_fred.py` with `FRED_API_KEY` injected as an env var
-   - Fetches all 20 series declared in `fred_config.json`
-   - Saves each as `data/fred/{SERIES_ID}.csv`
-   - Writes `data/fred/fred_cache.json` — all series bundled into one compact JSON file
-5. Stages `data/fred/`
-6. Commits only if there are changes, pushes
-
-**Why 22:00 UTC (not 21:00)?**
-The 1-hour offset avoids both workflows hitting git push at exactly the same time. The shared `update-data` concurrency group serializes them if they do overlap, but the offset keeps the queue clear in the common case.
-
-**Why no `generate-cache` dependency?**
-FRED data feeds the Gov Data and Credit Spread pages, which do all analysis client-side. There are no Python-generated cache files for FRED — `gov_data_app.js` and `credit_app.js` compute stats in the browser directly from the fetched data.
-
-**Output files:**
-- `data/fred/{SERIES_ID}.csv` — individual series, `Date,Value` format, full history
-- `data/fred/fred_cache.json` — single bundle used by the browser (`{fetched_at, series: {ID: [[date, value], ...]}}`)
-
-**FRED data frequencies:**
-
-| Frequency | Series | Notes |
-|-----------|--------|-------|
-| Daily | T10Y2Y, DGS10, T10YIE, T5YIE, VIXCLS, BAMLH0A0HYM2 | 1-business-day lag from FRED |
-| Weekly | ICSA, CCSA, NFCI | Released Thursdays |
-| Monthly | PAYEMS, UNRATE, JTSJOL, PCEPILFE, CPILFESL, CPIAUCSL, PPIACO, INDPRO, UMCSENT, RSAFS, FEDFUNDS | Varies by series |
-
-The daily workflow captures same-day updates for daily series. Weekly and monthly series change infrequently so daily fetches are no-ops for most of the month — the commit step only pushes if `git diff --cached` is non-empty.
-
-**Concurrency group:** `update-data`
-
----
-
-### 4. `pr-validation.yml` — Pull Request Checks
-
-**Trigger:** `pull_request` targeting `main`
-
-**What it does (read-only, nothing committed):**
-
-1. **`config.json` JSON lint** — `python3 -m json.tool config.json` catches malformed JSON before it can break the divergence page
-2. **`config.json` structure validation** — Python script checks:
-   - Required top-level keys (`symbols`, `pairs`, `defaults`)
-   - Every pair references symbols that exist in the `symbols` array
-   - Every `color1`/`color2` is a valid hex code (`#RGB` or `#RRGGBB`)
-3. **Python syntax check** — `py_compile fetch_data.py`
-4. **Import smoke test** — imports `fetch_data` to catch runtime import errors
-
-**Intent:** Catches broken config edits and Python syntax errors before they land on `main` and break the automated data pipeline.
-
----
-
-## Required Secrets
-
-| Secret name | Used by | Where to get it |
-|-------------|---------|-----------------|
-| `FRED_API_KEY` | `update-fred.yml` | [fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html) — free registration |
-
-The `GITHUB_TOKEN` (used for `git push`) is automatically provided by Actions — no setup needed.
-
----
-
-## Manual Triggers
-
-All data workflows support `workflow_dispatch` — run them on demand from the Actions tab without waiting for the schedule:
+**Committed paths** are listed explicitly, not by directory:
 
 ```
-GitHub → Actions → [workflow name] → Run workflow → Run workflow
+data/cache/*.json  data/cache/intraday/*.json  data/fred/fred_cache.json  data/last_updated.txt
 ```
 
-Useful when:
-- First-time setup (run all three in order: Yahoo → wait for cache → FRED)
-- After adding a new symbol or FRED series to a config file
-- Debugging a stale data issue
+Anything the pipeline writes outside that list exists only inside the runner and
+is discarded. That is deliberate — but it means adding a new output requires
+adding it here too, or it will silently never appear in the repo.
 
-**Recommended order for a full refresh:**
-1. Trigger `update-data.yml` manually
-2. Wait for it to complete — `generate-cache.yml` fires automatically
-3. Trigger `update-fred.yml` manually in parallel with step 1 (they use different APIs)
+**Concurrency:** group `update-data-v2`, `cancel-in-progress: false`. Queued runs
+wait rather than being dropped, so the two daily slots can never race on push.
 
 ---
 
-## Adding a New Series
+## 2. `backfill-trading-history.yml`
 
-### Yahoo Finance symbol (Divergence or Macro pages)
-1. Edit `config.json` or `macro_config.json`
-2. Edit `fetch_data.py` to include the symbol in the fetch list
-3. Run `python3 fetch_data.py` locally
-4. Run `python3 generate_cache.py` locally
-5. Commit everything — the PR validation workflow checks `config.json` structure on the PR
+**Trigger:** `workflow_dispatch` only.
 
-### FRED series (Gov Data page)
-1. Edit `fred_config.json` — add series entry with `id`, `name`, `units`, `display`, `freq`
-2. Run `python fetch_fred.py` locally — generates updated CSVs and `fred_cache.json`
-3. Commit `fred_config.json` and `data/fred/` — no cache regeneration needed, Gov Data is client-side
+| Input | Default | Meaning |
+|-------|---------|---------|
+| `days` | `30` | Calendar days back to backfill |
+| `force` | `false` | Regenerate cache files that already exist |
+
+Regenerates historical dated trading caches. Concurrency group
+`backfill-trading`, separate from the scheduled run.
+
+---
+
+## 3. `pr-validation.yml`
+
+**Trigger:** `pull_request` targeting `main`. Read-only; commits nothing.
+
+1. `config/config.json` parses as JSON
+2. Structure check — required keys (`symbols`, `pairs`, `defaults`), every pair
+   references a symbol that exists, every `color1`/`color2` is `#RGB` or `#RRGGBB`
+3. `py_compile scripts/fetch_data.py`, then imports it
+
+Steps 1–2 guard the divergence page against a broken config edit.
+
+Steps 3–4 are stale: `scripts/fetch_data.py` is a legacy v1 script that no
+workflow calls. CI is syntax-checking code production does not run, while
+`pipeline/` — which it does run — is not checked at all.
+
+---
+
+## Secrets
+
+| Secret | Used by | Source |
+|--------|---------|--------|
+| `FRED_API_KEY` | `update-data-v2.yml`, fetch step | [fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html) — free |
+
+`GITHUB_TOKEN` is provided automatically for `git push`.
+
+---
+
+## Running it locally
+
+Same three steps as CI:
+
+```bash
+python3 -m pipeline.run seed       # CSVs → SQLite (idempotent)
+python3 -m pipeline.run fetch      # Yahoo + FRED → SQLite
+python3 -m pipeline.run generate   # SQLite → data/cache/*.json
+```
+
+`scripts/refresh.sh` wraps these and loads `FRED_API_KEY` from `.env`.
+
+Never commit the results. `data/` is written by the workflow only.
+
+---
+
+## Adding a new series
+
+**Yahoo symbol** — edit `config/config.json` or `config/macro_config.json`, then
+run the three pipeline steps. PR validation checks `config.json` structure.
+
+**FRED series** — add an entry to `config/fred_config.json` with `id`, `name`,
+`units`, `display`, `freq`. Nothing else: `FREDFetcher` derives its fetch list
+from the config, and the next scheduled run picks it up.
 
 ---
 
@@ -233,9 +172,9 @@ Useful when:
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| Page shows "Loading…" forever | `data/cache/*.json` missing or stale | Trigger `generate-cache.yml` manually |
-| Gov Data shows "Error: HTTP 404" | `fred_cache.json` not yet generated | Run `fetch_fred.py` locally and commit, or trigger `update-fred.yml` |
-| FRED workflow fails with "FRED_API_KEY not set" | Secret not configured | Add `FRED_API_KEY` under repo Settings → Secrets → Actions |
-| Two workflows push simultaneously, one fails with non-fast-forward | Race on the same concurrency group | Rerun the failed job — it will `git pull --rebase` and retry cleanly |
-| `generate-cache.yml` never fires after Yahoo update | Yahoo workflow failed | Check the Yahoo run log; `generate-cache` is gated on `conclusion == 'success'` |
-| Sparklines show no data for a series | CSV file is empty or series ID mismatch | Check `data/fred/{ID}.csv` exists; verify ID in `fred_config.json` matches FRED exactly |
+| Page shows "Cache missing — run: python3 -m pipeline.run generate" | Cache JSON absent | Run generate locally, or wait for the next scheduled run |
+| A page loads but a chart is empty | Series missing from the bundle | Check the series ID in `config/fred_config.json` matches FRED exactly |
+| FRED data is stale but the run was green | `FRED_API_KEY` missing or the API failed | `cmd_fetch` swallows this — check the fetch step log for "FRED fetch skipped" or a per-series WARNING |
+| New pipeline output never appears in the repo | Path not in the commit step's `git add` | Add it to the explicit list in `update-data-v2.yml` |
+| Push fails with non-fast-forward | Race on `main` | Rerun; the job does `git pull --rebase` first |
+| Cache timestamps lag the cron | Runs fire late | Normal — the 09:00 slot has landed as late as 11:10 ET |

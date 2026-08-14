@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FOMC Statement Tracker</title>
+  <base href="../">
+  <link rel="stylesheet" href="styles/styles.css">
+  <meta name="description" content="FOMC statement tracker — word-level redline between consecutive Federal Open Market Committee statements and implementation notes." />
+</head>
+<body>
+  <nav class="site-nav"></nav>
+
+  <!-- Header -->
+  <div class="card">
+    <div class="header-section">
+      <div>
+        <h1 style="margin:0 0 4px 0">FOMC Statement Tracker</h1>
+        <div class="muted" id="meta">Loading statements…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary stat cards -->
+  <div class="risk-cards-container" id="stmt-cards"></div>
+
+  <!-- Controls -->
+  <div class="card" style="margin-top:18px">
+    <div class="stmt-controls">
+      <div class="stmt-ctl">
+        <label class="muted stmt-ctl-label" for="sel-base">Base</label>
+        <select class="control-select" id="sel-base"></select>
+      </div>
+      <div class="stmt-ctl">
+        <label class="muted stmt-ctl-label" for="sel-compare">Compare to</label>
+        <select class="control-select" id="sel-compare"></select>
+      </div>
+      <div class="stmt-ctl">
+        <span class="muted stmt-ctl-label">Document</span>
+        <div class="tab-bar stmt-seg">
+          <button class="tab-btn" data-doc="statement">Statement</button>
+          <button class="tab-btn" data-doc="implementation">Implementation note</button>
+        </div>
+      </div>
+      <div class="stmt-ctl">
+        <span class="muted stmt-ctl-label">View</span>
+        <div class="tab-bar stmt-seg">
+          <button class="tab-btn" data-view="redline">Redline</button>
+          <button class="tab-btn" data-view="new">Compare only</button>
+          <button class="tab-btn" data-view="base">Base only</button>
+        </div>
+      </div>
+      <div class="stmt-key" id="diff-key">
+        <span><i class="stmt-key-add"></i> added</span>
+        <span><i class="stmt-key-del"></i> removed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Redline document -->
+  <div class="card" style="margin-top:18px">
+    <div class="stmt-release muted" id="stmt-release"></div>
+    <div class="stmt-doc view-redline" id="stmt-doc">
+      <div id="stmt-body"></div>
+    </div>
+  </div>
+
+  <!-- Per-comparison analysis -->
+  <div class="card" style="margin-top:18px" id="stmt-notes"></div>
+
+  <!-- Sources -->
+  <div class="card" style="margin-top:18px">
+    <div class="muted stmt-card-label" style="margin-bottom:10px">Sources — Board of Governors of the Federal Reserve System</div>
+    <div id="stmt-sources"></div>
+    <div class="muted" style="font-size:12px;margin-top:12px;line-height:1.6">
+      Word-level diff computed in the browser from <code>config/fomc_meetings.json</code>.
+      Statement text is verbatim, including the vote preamble; release headers and media-contact
+      boilerplate are excluded.
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <div class="muted" style="text-align:center;font-size:12px">
+      Statement text from <a href="https://www.federalreserve.gov/newsevents/pressreleases.htm" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Federal Reserve press releases</a>
+      · Hosted on <a href="https://pages.github.com" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Pages</a>
+      · Vibe-coded with <a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">Claude Code</a>
+      · <a href="https://github.com/jonsflow/risk-divergence" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">GitHub Repo</a>
+      <br><span style="color:#6b7280;">Not financial advice — for research and informational purposes only.</span>
+    </div>
+  </div>
+
+<script type="module" src="js/pages/fomc_statements.js"></script>
+<script type="module" src="js/review.js"></script>
+</body>
+</html>

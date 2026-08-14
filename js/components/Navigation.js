@@ -9,8 +9,9 @@ const GROUPS = [
     { href: 'pages/correlation.html',      label: 'Correlations'  },
   ]},
   { label: 'Federal Reserve', pages: [
-    { href: 'pages/fomc.html',      label: 'FOMC'      },
-    { href: 'pages/fed_chair.html', label: 'Fed Chair' },
+    { href: 'pages/fomc.html',            label: 'FOMC'       },
+    { href: 'pages/fomc_statements.html', label: 'Statements' },
+    { href: 'pages/fed_chair.html',       label: 'Fed Chair'  },
   ]},
   { label: 'Economic Data', pages: [
     { href: 'pages/gov_data.html', label: 'Gov Data'      },

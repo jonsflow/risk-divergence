@@ -21,40 +21,12 @@
     </div>
   </div>
 
-  <!-- Summary stat cards -->
-  <div class="risk-cards-container">
-    <div class="card">
-      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Current Target Rate</div>
-      <div style="font-size:24px;font-weight:bold;margin-bottom:4px" id="card-rate">—</div>
-      <div class="muted" style="font-size:12px">Fed Funds Target Band</div>
-    </div>
-    <div class="card">
-      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Last Move</div>
-      <div style="font-size:24px;font-weight:bold;margin-bottom:4px" id="card-last-move">—</div>
-      <div class="muted" style="font-size:12px" id="card-last-move-date">—</div>
-    </div>
-    <div class="card">
-      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">SEP Median</div>
-      <div style="font-size:24px;font-weight:bold;margin-bottom:4px" id="card-sep">—</div>
-      <div class="muted" style="font-size:12px">Latest dot-plot median</div>
-    </div>
-    <div class="card">
-      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Fed Balance Sheet</div>
-      <div style="font-size:24px;font-weight:bold;margin-bottom:4px" id="card-bs">—</div>
-      <div class="muted" style="font-size:12px">Total Assets (WALCL)</div>
-    </div>
+  <!-- Latest meeting — rendered from config/fomc_meetings.json -->
+  <div class="card" style="margin-top:18px" id="latest-meeting">
+    <div class="muted">Loading latest meeting…</div>
   </div>
 
-  <!-- Chart 1: Rate History — full history with FEDFUNDS + EFFR splice, decision markers -->
-  <div class="card" style="margin-top:18px">
-    <div class="chart-title">Fed Funds Rate History</div>
-    <div class="muted" style="font-size:11px;margin-bottom:8px">
-      Pre-2016: FEDFUNDS (monthly) · 2016+: EFFR (daily) · Arrows mark FOMC decisions
-    </div>
-    <div id="chart-rate-history" style="width:100%;height:300px"></div>
-  </div>
-
-  <!-- Chart 2: Rate Corridor — last 2 years zoomed in -->
+  <!-- Rate corridor — where the policy rate actually sits -->
   <div class="card" style="margin-top:18px">
     <div class="chart-title">Rate Corridor — Last 2 Years</div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">
@@ -83,14 +55,20 @@
     </div>
   </div>
 
+  <!-- Rate history — full history, FEDFUNDS + EFFR splice, decision markers -->
+  <div class="card" style="margin-top:18px">
+    <div class="chart-title">Fed Funds Rate History</div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px">
+      Pre-2016: FEDFUNDS (monthly) · 2016+: EFFR (daily) · Arrows mark FOMC decisions
+    </div>
+    <div id="chart-rate-history" style="width:100%;height:300px"></div>
+  </div>
+
   <!-- Two-column: SEP dot plot + Overnight Reverse Repo -->
   <div class="two-col-grid">
     <div class="card">
       <div class="chart-title">SEP Median Rate Projection (Dot Plot)</div>
-      <div class="muted" style="font-size:11px;margin-bottom:8px">
-        FEDTARMD — quarterly FOMC median projection. Shows how the Fed's projected path has shifted.
-        · June 2026: dot plot shifted hawkish — median year-end 2026 projection rose from 3.4% to ~3.8% (9/18 members projecting ≥1 hike)
-      </div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px" id="sep-caption"></div>
       <div id="chart-sep" style="width:100%;height:220px"></div>
     </div>
     <div class="card">
@@ -102,7 +80,7 @@
     </div>
   </div>
 
-  <!-- Chart 5: Balance Sheet Composition — full width -->
+  <!-- Balance sheet composition -->
   <div class="card" style="margin-top:18px">
     <div class="chart-title">Fed Balance Sheet Composition ($B)</div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">

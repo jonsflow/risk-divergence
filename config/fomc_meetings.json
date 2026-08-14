@@ -1,0 +1,132 @@
+{
+  "_comment": "FOMC meeting corpus. One entry per meeting we track — not the full FOMC history. Hand-maintained after each meeting; see docs/fomc-config.md. Newest first. Consumed by pages/fomc.html, pages/fomc_statements.html and pages/fed_chair.html. Statement text is verbatim from the Federal Reserve press releases, apostrophes normalized to ASCII, release headers and media-contact boilerplate excluded.",
+  "chair": {
+    "name": "Kevin Warsh",
+    "confirmed": "2026-05-13",
+    "sworn_in": "2026-05-22",
+    "predecessor": "Jerome Powell",
+    "predecessor_term": "2018–2026"
+  },
+  "next_meeting": {
+    "date": "2026-09-15",
+    "label": "Sep 15–16, 2026",
+    "sep_meeting": true
+  },
+  "meetings": [
+    {
+      "date": "2026-07-29",
+      "label": "Jul 29, 2026",
+      "chair": "Warsh",
+      "vote": "9–3",
+      "target_range": "3.50–3.75%",
+      "dissent_count": 3,
+      "dissent_direction": "hike",
+      "decision": "hold",
+      "bps": 0,
+      "consecutive_holds": 5,
+      "sep_meeting": false,
+      "dissenters": [
+        {
+          "name": "Beth M. Hammack",
+          "bank": "Cleveland",
+          "preferred": "25bp hike",
+          "quote": "Now is the time for the FOMC to act to speed the return of PCE inflation to our 2 percent objective."
+        },
+        {
+          "name": "Neel Kashkari",
+          "bank": "Minneapolis",
+          "preferred": "25bp hike",
+          "quote": "To manage against the risk that high inflation could become entrenched, I would rather tighten policy incrementally."
+        },
+        {
+          "name": "Lorie K. Logan",
+          "bank": "Dallas",
+          "preferred": "25bp hike",
+          "quote": "Without any policy restraint, inflation will likely continue to trend above target until there's an unanticipated shock."
+        }
+      ],
+      "points": [
+        "The economic assessment is unchanged word-for-word from June — with forward guidance stripped out, the vote is the only new information the statement carries.",
+        "30-year Treasury rose 12bp to 5.21% on the day, a 19-year high, moving during the press conference."
+      ],
+      "sources": {
+        "statement": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm",
+        "implementation": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a1.htm",
+        "pdf": "https://www.federalreserve.gov/monetarypolicy/files/monetary20260729a1.pdf"
+      },
+      "statement": [
+        "The Federal Open Market Committee approved the following statement for release by a 9 – 3 vote:",
+        "The Committee decided to maintain the target range for the federal funds rate at 3-1/2 to 3-3/4 percent, in support of the Federal Reserve's dual mandate. The Committee is continuing its policy of maintaining ample reserves in the banking system.",
+        "Economic activity is expanding at a solid pace despite elevated uncertainty that owes, in part, to the conflict in the Middle East. Productivity growth and capital investment are strong. Job gains have kept pace with the workforce, and the unemployment rate has changed little.",
+        "Inflation remains elevated relative to the Committee's 2 percent goal, in part reflecting supply shocks that have driven price increases in certain sectors, including energy. The Committee will deliver price stability.",
+        "Voting against the monetary policy action were Beth M. Hammack, Neel Kashkari, and Lorie K. Logan, who preferred to raise the target range for the federal funds rate by 1/4 percentage point at this meeting."
+      ],
+      "implementation": [
+        "The Federal Reserve has made the following decisions to implement the monetary policy stance announced by the Federal Open Market Committee in its statement on July 29, 2026:",
+        "The Board of Governors of the Federal Reserve System voted unanimously to maintain the interest rate paid on reserve balances at 3.65 percent, effective July 30, 2026.",
+        "As part of its policy decision, the Federal Open Market Committee voted to direct the Open Market Desk at the Federal Reserve Bank of New York, until instructed otherwise, to execute transactions in the System Open Market Account in accordance with the following domestic policy directive: \"Effective July 30, 2026, the Federal Open Market Committee directs the Desk to:",
+        "Undertake open market operations as necessary to maintain the federal funds rate in a target range of 3-1/2 to 3-3/4 percent.",
+        "Conduct standing overnight repurchase agreement operations at a rate of 3.75 percent.",
+        "Conduct standing overnight reverse repurchase agreement operations at an offering rate of 3.5 percent and with a per-counterparty limit of $160 billion per day.",
+        "When appropriate, increase the System Open Market Account holdings of securities through purchases of Treasury bills and, if needed, other Treasury securities with remaining maturities of 3 years or less to maintain an ample level of reserves.",
+        "Roll over at auction all principal payments from the Federal Reserve's holdings of Treasury securities. Reinvest all principal payments from the Federal Reserve's holdings of agency securities into Treasury bills.\"",
+        "In a related action, the Board of Governors of the Federal Reserve System voted unanimously to approve the establishment of the primary credit rate at the existing level of 3.75 percent."
+      ],
+      "note": "The economic assessment is unchanged word-for-word from June — with forward guidance stripped out, the vote is the only new information the statement carries.",
+      "dissent_note": "First time three policymakers dissented in the same direction since September 2016. All three are Reserve Bank presidents; the Board voted unanimously on every implementation action."
+    },
+    {
+      "date": "2026-06-17",
+      "label": "Jun 17, 2026",
+      "chair": "Warsh",
+      "vote": "12–0",
+      "target_range": "3.50–3.75%",
+      "dissent_count": 0,
+      "dissent_direction": null,
+      "decision": "hold",
+      "bps": 0,
+      "consecutive_holds": 4,
+      "sep_meeting": true,
+      "dissenters": [],
+      "points": [
+        "Dot plot tilted hawkish for the first time since 2023: 9 of 18 members projected at least one hike before year-end.",
+        "Five task forces announced — communications, balance sheet, data inputs, productivity/jobs, and the inflation framework."
+      ],
+      "sources": {
+        "statement": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260617a.htm",
+        "implementation": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260617a1.htm",
+        "pdf": "https://www.federalreserve.gov/monetarypolicy/files/monetary20260617a1.pdf"
+      },
+      "statement": [
+        "The Federal Open Market Committee approved the following statement for release by a 12 – 0 vote:",
+        "The Committee decided to maintain the target range for the federal funds rate at 3-1/2 to 3-3/4 percent, in support of the Federal Reserve's dual mandate. The Committee reaffirmed its policy of maintaining ample reserves in the banking system.",
+        "Economic activity is expanding at a solid pace despite elevated uncertainty that owes, in part, to the conflict in the Middle East. Productivity growth and capital investment are strong. Job gains have kept pace with the workforce, and the unemployment rate has changed little.",
+        "Inflation remains elevated relative to the Committee's 2 percent goal, in part reflecting supply shocks that have driven price increases in certain sectors, including energy. The Committee will deliver price stability."
+      ],
+      "implementation": [
+        "The Federal Reserve has made the following decisions to implement the monetary policy stance announced by the Federal Open Market Committee in its statement on June 17, 2026:",
+        "The Board of Governors of the Federal Reserve System voted unanimously to maintain the interest rate paid on reserve balances at 3.65 percent, effective June 18, 2026.",
+        "As part of its policy decision, the Federal Open Market Committee voted to direct the Open Market Desk at the Federal Reserve Bank of New York, until instructed otherwise, to execute transactions in the System Open Market Account in accordance with the following domestic policy directive: \"Effective June 18, 2026, the Federal Open Market Committee directs the Desk to:",
+        "Undertake open market operations as necessary to maintain the federal funds rate in a target range of 3-1/2 to 3-3/4 percent.",
+        "Conduct standing overnight repurchase agreement operations at a rate of 3.75 percent.",
+        "Conduct standing overnight reverse repurchase agreement operations at an offering rate of 3.5 percent and with a per-counterparty limit of $160 billion per day.",
+        "When appropriate, increase the System Open Market Account holdings of securities through purchases of Treasury bills and, if needed, other Treasury securities with remaining maturities of 3 years or less to maintain an ample level of reserves.",
+        "Roll over at auction all principal payments from the Federal Reserve's holdings of Treasury securities. Reinvest all principal payments from the Federal Reserve's holdings of agency securities into Treasury bills.\"",
+        "In a related action, the Board of Governors of the Federal Reserve System voted unanimously to approve the establishment of the primary credit rate at the existing level of 3.75 percent."
+      ],
+      "note": "Warsh's first meeting as Chair. Statement cut to ~130 words with forward guidance removed entirely.",
+      "sep_note": "Median year-end 2026 projection rose from 3.4% to ~3.8%, with 9 of 18 members projecting at least one hike."
+    }
+  ],
+  "redlines": {
+    "2026-06-17|2026-07-29": [
+      "<strong>The assessment is frozen.</strong> Both paragraphs describing the economy — solid growth, the Middle East conflict, strong capex, job gains keeping pace, inflation elevated on energy-led supply shocks — are word-for-word identical across 42 days. With forward guidance stripped out, that leaves the vote as the only new information the statement carries.",
+      "<strong>“Reaffirmed” became “is continuing.”</strong> The one substantive edit to the body is a tense change on ample reserves: June restated a standing commitment, July describes an ongoing operation. Reserve-management bill purchases are running, and the balance sheet was the fourth of the four questions Warsh said the Committee debated.",
+      "<strong>Unanimous to 9–3 in one meeting.</strong> Hammack, Kashkari and Logan — three Reserve Bank presidents, no Governors — all dissented for a 25bp hike. First same-direction trio since September 2016. Every Board-level action in the implementation note stayed unanimous; the split is on the rate alone.",
+      "<strong>Nothing moved operationally.</strong> The implementation note changed only its effective dates. IORB 3.65%, primary credit 3.75%, standing repo 3.75%, ON RRP 3.50% at a $160bn per-counterparty cap, and the full Desk directive all carried over untouched."
+    ]
+  },
+  "captions": {
+    "sep": "FEDTARMD — quarterly FOMC median projection. Shows how the Fed's projected path has shifted."
+  }
+}
