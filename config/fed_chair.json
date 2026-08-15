@@ -44,7 +44,7 @@
         "\"QT for cuts\": drain balance sheet, allow rate cuts simultaneously",
         "Focus on underlying/trend inflation, not transitory swings",
         "Ample-reserves regime under task-force review — advantages, disadvantages, alternatives",
-        "Five task forces: monetary ops, communications, data sources, productivity, inflation causes"
+        "Five Chairman's Task Forces: Communications, Balance Sheet Policy, Data, Productivity and Jobs, Inflation Frameworks"
       ],
       "quote": {
         "text": "If the Fed had kept a smaller balance sheet… I think interest rates could be lower, inflation could be better and the economy could be stronger.",
@@ -60,7 +60,7 @@
         "text": "Directionally consistent",
         "color": "#f59e0b"
       },
-      "record": "Total assets are still rising — reserve management requires it, and the Fed states no endpoint for balance sheet reduction, only that reserves stay \"within the ample range.\" But the pace has roughly halved: Treasury purchases ran ~$53B/month across Feb–Apr and ~$29B/month across Jun–Jul, with MBS runoff continuing throughout. The ample-reserves regime that compels the buying is under review by his own balance sheet task force.",
+      "record": "Total assets are still rising — reserve management requires it, and the Fed states no endpoint for balance sheet reduction, only that reserves stay \"within the ample range.\" But the pace has roughly halved: Treasury purchases ran ~$53B/month across Feb–Apr and ~$29B/month across Jun–Jul, with MBS runoff continuing throughout. The ample-reserves regime that compels the buying is under review by his own Balance Sheet Policy task force.",
       "sources": [
         {
           "label": "Monetary Policy Report, Jul 2026",
@@ -92,7 +92,7 @@
         "text": "Partial",
         "color": "#f59e0b"
       },
-      "record": "Forward guidance is gone from the statement, which now runs ~130 words. The SEP itself survives — June published a dot plot. A communications task force is reviewing the rest; the next SEP is September 15–16."
+      "record": "Forward guidance is gone from the statement, which now runs ~130 words. The SEP itself survives — June published a dot plot. The Communications task force is reviewing the rest; the next SEP is September 15–16."
     },
     {
       "label": "Inflation Measurement",
@@ -101,7 +101,7 @@
         "text": "In evidence",
         "color": "#34d399"
       },
-      "record": "Warsh argues the record cumulatively — 63 months above target, consumer prices +20.8% over five years — and has declined to treat single soft prints as decisive. A data-inputs task force is already at work."
+      "record": "Warsh argues the record cumulatively — 63 months above target, consumer prices +20.8% over five years — and has declined to treat single soft prints as decisive. The Data task force is already at work."
     }
   ],
   "timeline": [
@@ -192,7 +192,7 @@
     {
       "date": "2026-07-09",
       "event": "Task force leadership named",
-      "context": "15 outside experts across communications, balance sheet, data inputs, productivity, and the inflation framework.",
+      "context": "15 outside experts across Communications, Balance Sheet Policy, Data, Productivity and Jobs, and Inflation Frameworks.",
       "era": "warsh"
     },
     {

@@ -35,12 +35,16 @@ Key changes:
 - Emphasized data dependence over commitment to any path.
 
 **On institutional reform:**
-- Announced **five task forces** to review Fed operations:
-  1. Monetary policy operations
-  2. Communications
-  3. Data sources
-  4. Productivity and labor market
-  5. Causes of inflation
+- Announced **five task forces**, styled "Chairman's Task Forces for Advancing
+  Monetary Policy". Official titles and charges, per the Board's own page:
+  1. **Communications** — "Review how the Federal Reserve conveys policy deliberations and decisions amid uncertainty"
+  2. **Balance Sheet Policy** — "Examine the costs, benefits, and institutional implications of the Federal Reserve's current balance sheet regime"
+  3. **Data** — "Improve the quality and timeliness of real economic signals that inform the Federal Reserve's policy judgments"
+  4. **Productivity and Jobs** — "Assess the economic impact of new general-purpose technologies, including artificial intelligence"
+  5. **Inflation Frameworks** — "Revisit how the Federal Reserve understands and responds to the drivers of inflation"
+
+  Co-led by external advisers. Source:
+  [federalreserve.gov/monetarypolicy/task-forces.htm](https://www.federalreserve.gov/monetarypolicy/task-forces.htm)
 
 **On Powell:**
 - Powell remains on the Board of Governors but has pledged to keep a low profile and not compete publicly with Warsh.
