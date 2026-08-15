@@ -226,9 +226,11 @@ including the target's definition or measure — inside six months.
 
 ### 3.7 The five task forces
 
-Announced at the June meeting; leadership named July 9. Mandates: **communications,
-balance sheet, data inputs, productivity/jobs, and the inflation framework.** Fifteen
-outside experts, reporting to the FOMC. Named participants include Marc Andreessen,
+Announced at the June meeting; leadership named July 9. Official titles, per the
+Board's [task forces page](https://www.federalreserve.gov/monetarypolicy/task-forces.htm):
+**Communications, Balance Sheet Policy, Data, Productivity and Jobs, and Inflation
+Frameworks** — collectively the "Chairman's Task Forces for Advancing Monetary
+Policy". Fifteen outside experts, reporting to the FOMC. Named participants include Marc Andreessen,
 former BoE Governor Mervyn King, Greg Mankiw, and Doug McMillon.
 
 Mike McKee (Bloomberg) raised the conflict question — Andreessen's ~$25m in political
