@@ -48,11 +48,30 @@ function toChartPoints(points) {
   return points.map(p => ({ time: p.date, value: p.value }));
 }
 
+/**
+ * Year-over-year change for a monthly series, matched by date rather than by
+ * position.
+ *
+ * A positional offset of 12 assumes every month is present. CPIAUCSL, CPILFESL
+ * and UNRATE have no 2025-10-01 observation — BLS collection was suspended and
+ * that month was never published — so from November 2025 onward a positional
+ * lookup compares against 13 months earlier and overstates the change. On Core
+ * CPI that was 0.32pp.
+ *
+ * Points with no counterpart exactly a year back are dropped rather than
+ * approximated.
+ */
 function computeMonthlyYoY(points) {
-  return points.slice(12).map((p, i) => ({
-    date:  p.date,
-    value: +((p.value / points[i].value - 1) * 100).toFixed(2),
-  }));
+  const byDate = new Map(points.map(p => [p.date, p.value]));
+  const out = [];
+  for (const p of points) {
+    const d = new Date(p.date + 'T00:00:00');
+    d.setFullYear(d.getFullYear() - 1);
+    const prior = byDate.get(d.toISOString().slice(0, 10));
+    if (prior == null) continue;
+    out.push({ date: p.date, value: +((p.value / prior - 1) * 100).toFixed(2) });
+  }
+  return out;
 }
 
 function destroyChart(id) {
