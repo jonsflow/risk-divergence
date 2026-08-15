@@ -1,8 +1,11 @@
 // js/pages/fed_chair.js — Fed Chair Transition Dashboard (ES module).
 import { renderNav }       from '../components/Navigation.js';
-import { fetchFredBundle } from '../core/api.js';
+import { fetchFredBundle, fetchCache } from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
+import { renderFedStrip } from '../components/FedStrip.js';
+import { renderGlossary } from '../components/Glossary.js';
 import {
-  createFomcChart, fitWithRightPadding, addChartLegend, addZoomControls, hexToRgba, colors,
+  createFomcChart, fitWithRightPadding, addChartLegend, hexToRgba, colors,
 } from '../core/chart-utils.js';
 
 const LC = window.LightweightCharts;
@@ -16,7 +19,10 @@ const FEDCHAIR_SERIES = [
   'T10Y2Y',
 ];
 
-const CHART_START = '2007-01-01';
+// One window for every chart on this page so they can be read against each
+// other. The page is about the current regime; two decades of history flattens
+// nineteen months of it into a single step.
+const CHART_START = '2025-01-01';
 
 const ERA = {
   powellStart:    '2018-02-05',
@@ -32,33 +38,14 @@ const ERA = {
   warshFirstFomc: '2026-06-17',
 };
 
-const TIMELINE = [
-  { date: '2018-02-05', event: 'Powell confirmed as Fed Chair',              context: 'Balance sheet ~$4.4T · Rate: 1.25–1.5%',              era: 'powell' },
-  { date: '2019-07-31', event: 'First Powell-era cut (−25bps)',               context: 'Insurance cut; trade war concerns',                    era: 'powell' },
-  { date: '2020-03-15', event: 'Emergency cuts to 0–0.25%; unlimited QE',    context: 'COVID shock; balance sheet begins surge toward $9T',   era: 'powell' },
-  { date: '2020-08-27', event: 'FAIT adopted at Jackson Hole',                context: 'Warsh later calls this the direct cause of 2022 surge', era: 'powell' },
-  { date: '2021-11-03', event: 'Taper announced; QE wind-down begins',       context: 'Balance sheet near $8.6T · CPI at 6.2%',              era: 'powell' },
-  { date: '2022-03-17', event: 'First hike of cycle (+25bps)',                context: 'Rate: 0.25–0.5% · Headline CPI above 8%',             era: 'powell' },
-  { date: '2022-06-01', event: 'QT begins ($47.5B/mo → $95B/mo cap)',        context: 'Drawdown starts from ~$9T peak',                       era: 'powell' },
-  { date: '2023-07-27', event: 'Last hike: 5.25–5.5% (22-year high)',        context: 'Core PCE still ~4.2% at peak rate',                    era: 'powell' },
-  { date: '2024-09-19', event: 'First cut of easing cycle (−50bps)',         context: 'Fed pivots; Core PCE still above 2%',                  era: 'powell' },
-  { date: '2025-08-22', event: 'FAIT abandoned — strict 2% target restored', context: 'Jackson Hole 2025; ahead of Warsh era',                era: 'powell' },
-  { date: '2026-04-21', event: 'Warsh Senate confirmation hearing',          context: '"QT for cuts" · eliminate dot plot · vows independence', era: 'warsh' },
-  { date: '2026-04-29', event: "Powell's last FOMC meeting",                 context: 'Rates held 3.50–3.75%. Final meeting under Powell.',      era: 'powell' },
-  { date: '2026-05-13', event: 'Warsh confirmed as Fed Chair',               context: 'Senate confirmation vote. Powell remains on Board of Governors.', era: 'warsh' },
-  { date: '2026-06-17', event: 'Warsh first FOMC: rates held, statement overhaul', context: 'Held 3.50–3.75% (12-0). Statement cut to ~130 words, forward guidance removed. Dot plot: 9/18 project ≥1 hike. Five task forces announced.', era: 'warsh' },
-];
+// Page content (doctrine scorecard + policy timeline) lives in
+// config/fed_chair.json so updating after a meeting is a data edit.
+let content = { page: {}, eras: [], doctrine: [], timeline: [] };
 
 const fedChairCharts = new Map();
 
 function toChartPoints(points) {
   return points.map(p => ({ time: p.date, value: p.value }));
-}
-
-function nYearsAgo(n) {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - n);
-  return d.toISOString().slice(0, 10);
 }
 
 function computeMonthlyYoY(points) {
@@ -135,6 +122,19 @@ function addChartOverlay(chart, containerId, { regions = [], lines = [] } = {}) 
       const div = document.createElement('div');
       div.style.cssText = `position:absolute;top:0;bottom:0;left:${x1}px;width:${x2 - x1}px;background:${r.color}`;
       overlay.appendChild(div);
+
+      // Label the band rather than the boundary — boundary labels collide when
+      // two dates fall close together on a long axis.
+      //
+      // Anchored to the bottom, clear of the time axis (~34px): addChartLegend
+      // occupies top:8px/left:8px, which a band starting at x=0 would sit under.
+      if (r.label && x2 - x1 > 44) {
+        const tag = document.createElement('div');
+        tag.style.cssText = `position:absolute;bottom:40px;left:${x1 + 6}px;font-size:10px;`
+          + `font-weight:600;color:${r.labelColor || '#a7a7ad'};white-space:nowrap;letter-spacing:0.04em`;
+        tag.textContent = r.label;
+        overlay.appendChild(tag);
+      }
     }
 
     for (let i = 0; i < lines.length; i++) {
@@ -156,6 +156,7 @@ function addChartOverlay(chart, containerId, { regions = [], lines = [] } = {}) 
 
   chart.timeScale().subscribeVisibleTimeRangeChange(render);
   new ResizeObserver(() => requestAnimationFrame(render)).observe(container);
+  requestAnimationFrame(render);   // initial paint; the events above may never fire
 }
 
 // ------------------------------------------------------------------
@@ -172,9 +173,11 @@ function renderScorecard(data) {
 
   const metrics = [
     {
-      label: 'Fed Balance Sheet',
+      // Total assets is on the shared strip; what this page adds is the distance
+      // from the pre-COVID level Warsh treats as the floor.
+      label: 'Gap to Pre-COVID',
       raw: walcl?.length ? walcl[walcl.length - 1].value : null,
-      display: v => `$${(v / 1_000_000).toFixed(2)}T → target ~$4.2T (gap: $${((v / 1_000_000) - 4.2).toFixed(2)}T)`,
+      display: v => `+$${((v / 1_000_000) - 4.2).toFixed(2)}T`,
       warshTake: 'Pre-COVID level (~$4.2T) is the implicit floor — accelerating QT is his primary lever',
       status(v) {
         const t = v / 1_000_000;
@@ -239,10 +242,196 @@ function renderScorecard(data) {
   }).join('');
 }
 
+function esc(v) {
+  return String(v).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+/** {placeholder} substitution against the chair record from fomc_meetings.json. */
+function fill(tpl, chair) {
+  const longDate = iso => iso
+    ? new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : '';
+  const last = str => String(str || '').trim().split(/\s+/).pop();
+  const vals = {
+    ...chair,
+    last:            last(chair.name),
+    predecessor_last: last(chair.predecessor),
+    confirmed_long:  longDate(chair.confirmed),
+    sworn_in_long:   longDate(chair.sworn_in),
+  };
+  return String(tpl || '').replace(/\{(\w+)\}/g, (_, k) => esc(vals[k] ?? ''));
+}
+
+function renderHeader(chair) {
+  const page = content.page || {};
+  const set = (id, tpl) => {
+    const el = document.getElementById(id);
+    if (el && tpl) el.textContent = fill(tpl, chair);
+  };
+  set('page-title', page.title);
+  set('page-intro', page.intro);
+  set('scorecard-title', page.sections?.scorecard);
+  set('doctrine-sub',   page.sections?.doctrine_sub);
+  set('timeline-title', page.sections?.timeline);
+
+  for (const [key, tpl] of Object.entries(page.captions || {})) {
+    set(`cap-${key.replace(/_/g, '-')}`, tpl);
+  }
+
+  if (page.doc_title) document.title = fill(page.doc_title, chair);
+  const desc = document.querySelector('meta[name="description"]');
+  if (desc && page.description) desc.setAttribute('content', fill(page.description, chair));
+}
+
+function renderEras() {
+  const host = document.getElementById('eras-container');
+  if (!host) return;
+  host.innerHTML = content.eras.map(e => `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:4px;height:44px;background:${esc(e.color)};border-radius:2px;flex-shrink:0"></div>
+        <div>
+          <div style="font-size:16px;font-weight:bold;color:${esc(e.color)}">${esc(e.name)}${e.period ? ` (${esc(e.period)})` : ''}</div>
+          <div class="muted" style="font-size:11px;margin-top:2px">${esc(e.subtitle || '')}</div>
+        </div>
+      </div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:2;color:#e9e9ea">
+        ${(e.bullets || []).map(b => `<li>${esc(b)}</li>`).join('')}
+      </ul>
+      ${e.quote ? `<div style="margin-top:14px;padding:10px 12px;background:#1a1a2e;border-left:3px solid ${esc(e.color)};border-radius:0 4px 4px 0;font-size:12px;color:#a7a7ad;font-style:italic;line-height:1.6">
+        "${esc(e.quote.text)}"
+        <span style="display:block;margin-top:4px;font-style:normal;color:#6b7280">— ${esc(e.quote.attribution)}</span>
+      </div>` : ''}
+    </div>`).join('');
+}
+
+function renderDoctrine() {
+  const container = document.getElementById('doctrine-container');
+  if (!container) return;
+  container.innerHTML = content.doctrine.map(d => `
+    <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.05em">${d.label}</div>
+        <div style="background:${d.status.color}22;color:${d.status.color};font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap">${d.status.text}</div>
+      </div>
+      <div class="muted" style="font-size:12px;line-height:1.6;margin-bottom:8px"><strong style="color:#a7a7ad">Stated:</strong> ${d.stated}</div>
+      <div style="font-size:13px;color:#e9e9ea;line-height:1.6"><strong style="color:#a7a7ad;font-size:12px">Record:</strong> ${d.record}</div>
+      ${(d.sources || []).length ? `<div style="margin-top:8px;font-size:11px;line-height:1.8">
+        ${d.sources.map(src => `<a href="${esc(src.url)}" target="_blank" rel="noopener" style="color:#7aa2f7;text-decoration:none">${esc(src.label)} &nearr;</a>`).join('<span style="color:#3a3a42"> · </span>')}
+      </div>` : ''}
+    </div>`).join('');
+}
+
+/**
+ * Month-over-month change in a weekly stock series, in $B.
+ * Compares each month's last observation with the previous month's last, so an
+ * incomplete current month is dropped rather than shown as a partial move.
+ */
+function monthlyChange(points, months = 6) {
+  if (!points?.length) return [];
+  const byMonth = new Map();
+  for (const p of points) byMonth.set(p.date.slice(0, 7), p);   // last wins
+  const keys = [...byMonth.keys()].sort();
+
+  const nowMonth = new Date().toISOString().slice(0, 7);
+  const out = [];
+  for (let i = 1; i < keys.length; i++) {
+    if (keys[i] === nowMonth) continue;                          // partial month
+    out.push({
+      time:  byMonth.get(keys[i]).date,
+      value: +((byMonth.get(keys[i]).value - byMonth.get(keys[i - 1]).value) / 1000).toFixed(1),
+    });
+  }
+  return out.slice(-months);
+}
+
+/**
+ * Pace of balance sheet change, not level. The doctrine card claims the purchase
+ * rate is falling even though total assets rise; this is that claim, shown.
+ *
+ * Six monthly values do not need a financial chart — a labelled bar per month
+ * reads faster and cannot be misread as a continuous series.
+ */
+function renderPace(data) {
+  const host = document.getElementById('bs-pace');
+  if (!host) return;
+
+  const tsy = monthlyChange(data['TREAST']);
+  const mbs = monthlyChange(data['WSHOMCB']);
+  const net = monthlyChange(data['WALCL']);
+  if (!tsy.length) { host.innerHTML = ''; return; }
+
+  const byMonth = arr => Object.fromEntries(arr.map(p => [p.time.slice(0, 7), p.value]));
+  const M = byMonth(mbs), N = byMonth(net);
+  const peak = Math.max(...tsy.map(p => Math.abs(p.value)), 1);
+
+  const monthName = ym => new Date(ym + '-02T00:00:00')
+    .toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+  const sign = v => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(0)}`);
+
+  host.innerHTML = `
+    <div class="pace-grid">
+      <div class="pace-head">Month</div>
+      <div class="pace-head" style="grid-column:span 2">Treasuries bought</div>
+      <div class="pace-head pace-num">MBS</div>
+      <div class="pace-head pace-num">Net</div>
+      ${tsy.map(p => {
+        const ym = p.time.slice(0, 7);
+        return `
+        <div class="pace-month">${monthName(ym)}</div>
+        <div class="pace-barwrap">
+          <div class="pace-bar" style="width:${(Math.abs(p.value) / peak * 100).toFixed(1)}%"></div>
+        </div>
+        <div class="pace-barval">+$${p.value.toFixed(0)}B</div>
+        <div class="pace-num pace-mbs">${sign(M[ym])}</div>
+        <div class="pace-num">${sign(N[ym])}</div>`;
+      }).join('')}
+    </div>
+    ${paceVerdict(tsy)}`;
+}
+
+/**
+ * State the trend rather than leaving it to be inferred from the bars.
+ * Computed from the data so it cannot drift out of agreement with the chart.
+ */
+function paceVerdict(tsy) {
+  if (tsy.length < 4) return '';
+  const half = Math.floor(tsy.length / 2);
+  const mean = arr => arr.reduce((s, p) => s + p.value, 0) / arr.length;
+  const older = mean(tsy.slice(0, half));
+  const newer = mean(tsy.slice(half));
+  if (!older) return '';
+
+  const pct = Math.round((newer - older) / Math.abs(older) * 100);
+  const span = a => `${new Date(a[0].time + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' })}–${new Date(a[a.length - 1].time + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' })}`;
+
+  const dir = pct < -5 ? { word: 'slowed',   color: '#34d399' }
+            : pct >  5 ? { word: 'accelerated', color: '#ef4444' }
+            :            { word: 'held steady', color: '#a7a7ad' };
+
+  return `
+    <div class="pace-verdict">
+      Buying <strong style="color:${dir.color}">${dir.word}</strong>:
+      <strong>$${older.toFixed(0)}B/mo</strong> across ${span(tsy.slice(0, half))}
+      &rarr; <strong>$${newer.toFixed(0)}B/mo</strong> across ${span(tsy.slice(half))}${
+        Math.abs(pct) > 5 ? `, ${Math.abs(pct)}% ${pct < 0 ? 'lower' : 'higher'}` : ''}.
+    </div>`;
+}
+
+// How many timeline rows to show before the toggle. The list is newest-first and
+// the recent entries are the ones being referenced; the rest is history.
+const TIMELINE_VISIBLE = 7;
+let timelineExpanded = false;
+
 function renderTimeline() {
   const tbody = document.getElementById('timeline-tbody');
   if (!tbody) return;
-  tbody.innerHTML = TIMELINE.map(ev => {
+  // Config keeps the timeline newest-last so new events are appended; the page
+  // shows newest first.
+  const all = [...content.timeline].reverse();
+  const rows = timelineExpanded ? all : all.slice(0, TIMELINE_VISIBLE);
+
+  tbody.innerHTML = rows.map(ev => {
     const isWarsh = ev.era === 'warsh';
     return `
       <tr style="border-bottom:1px solid #1e1e2e">
@@ -251,6 +440,20 @@ function renderTimeline() {
         <td style="padding:6px 8px;color:#a7a7ad;font-size:12px">${ev.context}</td>
       </tr>`;
   }).join('');
+
+  if (all.length > TIMELINE_VISIBLE) {
+    const label = timelineExpanded
+      ? 'Show recent only'
+      : `Show all ${all.length} events`;
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr><td colspan="3" style="padding:10px 8px">
+        <button type="button" class="timeline-toggle">${label}</button>
+      </td></tr>`);
+    tbody.querySelector('.timeline-toggle').addEventListener('click', () => {
+      timelineExpanded = !timelineExpanded;
+      renderTimeline();
+    });
+  }
 }
 
 // ------------------------------------------------------------------
@@ -274,35 +477,22 @@ function renderBalanceSheetChart(data) {
   });
   area.setData(toB(walcl));
 
-  area.createPriceLine({
-    price: 4200, color: '#f97316', lineWidth: 1, lineStyle: LC.LineStyle.Dashed,
-    axisLabelVisible: true, title: 'Pre-COVID (~Warsh target)',
-  });
-
   const treast = data['TREAST'];
   const wshomcb = data['WSHOMCB'];
   const entries = [{ label: 'Total Assets', color: colors.balSheet, value: `$${(walcl[walcl.length-1].value/1000).toFixed(0)}B` }];
   if (treast?.length)  entries.push({ label: 'Treasuries', color: colors.sofr, value: `$${(treast[treast.length-1].value/1000).toFixed(0)}B` });
   if (wshomcb?.length) entries.push({ label: 'MBS',        color: colors.mbs,  value: `$${(wshomcb[wshomcb.length-1].value/1000).toFixed(0)}B` });
   addChartLegend('chart-balance-sheet', entries);
-  fitWithRightPadding(chart, walcl.length, 0.04);
+  fitWithRightPadding(chart, toB(walcl).length, 0.04);
 
   addChartOverlay(chart, 'chart-balance-sheet', {
     regions: [
-      { from: ERA.powellStart,    to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.05)' },
-      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.05)'  },
-    ],
-    lines: [
-      { date: ERA.powellStart,    label: 'Powell',      color: '#7aa2f7' },
-      { date: ERA.covidQE,        label: 'COVID QE',    color: '#ef4444' },
-      { date: ERA.qtBegins,       label: 'QT',          color: '#34d399' },
-      { date: ERA.warshConfirmed, label: 'Warsh',       color: '#f97316' },
-      { date: ERA.warshFirstFomc, label: 'First FOMC',  color: '#f97316' },
+      { from: CHART_START,     to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.14)',
+        label: 'Powell', labelColor: '#7aa2f7' },
+      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.14)',
+        label: 'Warsh',  labelColor: '#f97316' },
     ],
   });
-  addZoomControls(chart, 'chart-balance-sheet', [
-    { label: '5Y', years: 5 }, { label: '10Y', years: 10 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderInflationChart(data) {
@@ -344,18 +534,12 @@ function renderInflationChart(data) {
 
   addChartOverlay(chart, 'chart-inflation', {
     regions: [
-      { from: ERA.powellStart,    to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.05)' },
-      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.05)'  },
-    ],
-    lines: [
-      { date: ERA.powellStart,    label: 'Powell', color: '#7aa2f7' },
-      { date: ERA.firstHike,      label: 'Hike',   color: '#ef4444' },
-      { date: ERA.warshConfirmed, label: 'Warsh',  color: '#f97316' },
+      { from: CHART_START,        to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.14)',
+        label: 'Powell', labelColor: '#7aa2f7' },
+      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.14)',
+        label: 'Warsh',  labelColor: '#f97316' },
     ],
   });
-  addZoomControls(chart, 'chart-inflation', [
-    { label: '5Y', years: 5 }, { label: '10Y', years: 10 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderBreakevenChart(data) {
@@ -391,27 +575,22 @@ function renderBreakevenChart(data) {
 
   addChartOverlay(chart, 'chart-breakevens', {
     regions: [
-      { from: ERA.powellStart,    to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.05)' },
-      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.05)'  },
-    ],
-    lines: [
-      { date: ERA.powellStart,    label: 'Powell', color: '#7aa2f7' },
-      { date: ERA.firstHike,      label: 'Hike',   color: '#ef4444' },
-      { date: ERA.firstCut,       label: 'Cut',    color: '#34d399' },
-      { date: ERA.warshConfirmed, label: 'Warsh',  color: '#f97316' },
+      { from: CHART_START,        to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.14)',
+        label: 'Powell', labelColor: '#7aa2f7' },
+      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.14)',
+        label: 'Warsh',  labelColor: '#f97316' },
     ],
   });
-  addZoomControls(chart, 'chart-breakevens', [
-    { label: '5Y', years: 5 }, { label: '10Y', years: 10 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderRateChart(data) {
   const fedfunds  = data['FEDFUNDS'] || [];
   const effr      = data['EFFR']     || [];
   const effrStart = effr.length ? effr[0].date : '2099-01-01';
+  // FEDFUNDS only covers the window if it starts before EFFR does; at the current
+  // window it never does, but the splice stays correct if the window moves back.
   const pre       = fedfunds.filter(p => p.date >= CHART_START && p.date < effrStart).map(p => ({ time: p.date, value: p.value }));
-  const combined  = [...pre, ...toChartPoints(effr)];
+  const combined  = [...pre, ...toChartPoints(effr.filter(p => p.date >= CHART_START))];
   if (combined.length < 2) return;
 
   const chart = makeChart('chart-rates', 260);
@@ -432,19 +611,12 @@ function renderRateChart(data) {
 
   addChartOverlay(chart, 'chart-rates', {
     regions: [
-      { from: ERA.powellStart,    to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.05)' },
-      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.05)'  },
-    ],
-    lines: [
-      { date: ERA.powellStart,    label: 'Powell',      color: '#7aa2f7' },
-      { date: ERA.faitAdopted,    label: 'FAIT',        color: '#f59e0b' },
-      { date: ERA.warshConfirmed, label: 'Warsh',       color: '#f97316' },
-      { date: ERA.warshFirstFomc, label: 'First FOMC',  color: '#f97316' },
+      { from: CHART_START,        to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.14)',
+        label: 'Powell', labelColor: '#7aa2f7' },
+      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.14)',
+        label: 'Warsh',  labelColor: '#f97316' },
     ],
   });
-  addZoomControls(chart, 'chart-rates', [
-    { label: '5Y', years: 5 }, { label: '10Y', years: 10 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderReservesChart(data) {
@@ -452,9 +624,8 @@ function renderReservesChart(data) {
   const rrpontsyd = data['RRPONTSYD'];
   if (!wresbal?.length) return;
 
-  const cutoff     = nYearsAgo(5);
-  const resFiltered = wresbal.filter(p => p.date >= cutoff);
-  const rrpFiltered = rrpontsyd?.filter(p => p.date >= cutoff) ?? [];
+  const resFiltered = wresbal.filter(p => p.date >= CHART_START);
+  const rrpFiltered = rrpontsyd?.filter(p => p.date >= CHART_START) ?? [];
   if (resFiltered.length < 2) return;
 
   const chart = makeChart('chart-reserves', 260);
@@ -482,17 +653,12 @@ function renderReservesChart(data) {
 
   addChartOverlay(chart, 'chart-reserves', {
     regions: [
-      { from: ERA.powellStart,    to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.05)' },
-      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.05)'  },
-    ],
-    lines: [
-      { date: ERA.powellStart,    label: 'Powell', color: '#7aa2f7' },
-      { date: ERA.warshConfirmed, label: 'Warsh',  color: '#f97316' },
+      { from: CHART_START,        to: ERA.warshConfirmed, color: 'rgba(122,162,247,0.14)',
+        label: 'Powell', labelColor: '#7aa2f7' },
+      { from: ERA.warshConfirmed, to: '2030-01-01',       color: 'rgba(249,115,22,0.14)',
+        label: 'Warsh',  labelColor: '#f97316' },
     ],
   });
-  addZoomControls(chart, 'chart-reserves', [
-    { label: '2Y', years: 2 }, { label: '5Y', years: 5 },
-  ]);
 }
 
 // ------------------------------------------------------------------
@@ -501,6 +667,27 @@ function renderReservesChart(data) {
 
 async function init() {
   renderNav();
+  renderFedStrip();
+  renderGlossary();
+
+  // Narrative content is independent of the FRED bundle; render it as soon as it
+  // arrives rather than gating it behind the chart data.
+  let chair = {};
+  try {
+    const [c, meetings] = await Promise.all([
+      fetchCache('config/fed_chair.json'),
+      fetchCache('config/fomc_meetings.json'),
+    ]);
+    content = c;
+    chair   = meetings.chair || {};
+  } catch (err) {
+    console.error('Fed Chair content failed to load:', err);
+  }
+  renderHeader(chair);
+  renderEras();
+  renderDoctrine();
+  renderTimeline();
+
   try {
     const bundle = await fetchFredBundle();
     const data   = {};
@@ -519,10 +706,10 @@ async function init() {
     if (metaEl) metaEl.textContent = parts.length ? parts.join(' · ') : 'Data loaded';
 
     renderScorecard(data);
-    renderTimeline();
 
     for (const [fn, args] of [
       [renderBalanceSheetChart, [data]],
+      [renderPace,              [data]],
       [renderInflationChart,    [data]],
       [renderBreakevenChart,    [data]],
       [renderRateChart,         [data]],
@@ -531,9 +718,7 @@ async function init() {
       try { fn(...args); } catch (e) { console.error(`${fn.name}:`, e); }
     }
   } catch (err) {
-    console.error('FedChair init error:', err);
-    const el = document.getElementById('meta');
-    if (el) el.textContent = `Error: ${err.message}`;
+    showLoadError(err, 'Fed Chair');
   }
 }
 

@@ -1,6 +1,10 @@
 // js/pages/fomc.js — FOMC Policy Dashboard page (ES module).
-import { renderNav }       from '../components/Navigation.js';
-import { fetchFredBundle } from '../core/api.js';
+import { renderNav }                  from '../components/Navigation.js';
+import { fetchFredBundle, fetchCache } from '../core/api.js';
+import { showLoadError }              from '../core/utils.js';
+import { renderFedStrip }             from '../components/FedStrip.js';
+import { renderGlossary } from '../components/Glossary.js';
+import { buildDecisionTimeline, fedDate } from '../core/fed-data.js';
 import {
   createFomcChart, fitWithRightPadding, addChartLegend, addZoomControls, hexToRgba, colors,
 } from '../core/chart-utils.js';
@@ -13,6 +17,11 @@ const FOMC_SERIES = [
   'FEDFUNDS',
 ];
 
+// Matches the Fed Chair page so the two can be read against each other. The
+// question is how current policy moves these series, which a decade of history
+// buries.
+const CHART_START = '2025-01-01';
+
 const fomcCharts = new Map();
 
 function toChartPoints(points) {
@@ -21,17 +30,6 @@ function toChartPoints(points) {
 
 function filterAfter(points, isoDate) {
   return points ? points.filter(p => p.date >= isoDate) : [];
-}
-
-function nYearsAgo(n) {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - n);
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function destroyChart(id) {
@@ -50,54 +48,48 @@ function createBaseChart(containerId, height, overrides) {
   return chart;
 }
 
-function buildDecisionTimeline(dfedtaru) {
-  if (!dfedtaru || dfedtaru.length < 2) return [];
-  const decisions = [];
-  for (let i = 1; i < dfedtaru.length; i++) {
-    const delta = Math.round((dfedtaru[i].value - dfedtaru[i - 1].value) * 100);
-    if (delta !== 0) {
-      decisions.push({
-        date: dfedtaru[i].date, bps: delta,
-        type: delta > 0 ? 'Hike' : 'Cut',
-      });
-    }
-  }
-  return decisions.reverse();
-}
+// Recent decisions are what gets referenced; the rest is history behind a toggle.
+// Deliberately not an inner scroll region — that captures trackpad scrolling and
+// fights the page.
+const DECISIONS_VISIBLE = 8;
+let decisionsExpanded = false;
 
-function renderSummaryCards(data, decisions) {
-  const dfedtaru = data['DFEDTARU'];
-  const dfedtarl = data['DFEDTARL'];
-  const fedtarmd = data['FEDTARMD'];
-  const walcl    = data['WALCL'];
+/** Fill the decision table. Newest first, matching the chart markers. */
+function renderDecisionTable(decisions) {
+  const tbody = document.getElementById('decision-tbody');
+  if (!tbody) return;
 
-  if (dfedtarl?.length && dfedtaru?.length) {
-    const lo = dfedtarl[dfedtarl.length - 1].value;
-    const hi = dfedtaru[dfedtaru.length - 1].value;
-    document.getElementById('card-rate').textContent = `${lo.toFixed(2)}–${hi.toFixed(2)}%`;
+  if (!decisions.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted" style="padding:12px 8px;text-align:center">No rate decisions in range</td></tr>';
+    return;
   }
 
-  if (decisions.length > 0) {
-    const last  = decisions[0];
-    const sign  = last.bps > 0 ? '+' : '';
-    const color = last.type === 'Hike' ? colors.hike : colors.cut;
-    const el    = document.getElementById('card-last-move');
-    el.textContent = `${sign}${last.bps}bps`;
-    el.style.color = color;
-    document.getElementById('card-last-move-date').textContent = formatDate(last.date);
-  }
+  const rows = decisionsExpanded ? decisions : decisions.slice(0, DECISIONS_VISIBLE);
 
-  if (fedtarmd?.length) {
-    const v   = fedtarmd[fedtarmd.length - 1].value;
-    const dt  = fedtarmd[fedtarmd.length - 1].date;
-    document.getElementById('card-sep').textContent = `${v.toFixed(2)}%`;
-    const sub = document.querySelector('#card-sep + .muted');
-    if (sub) sub.textContent = `As of ${formatDate(dt)}`;
-  }
+  tbody.innerHTML = rows.map(d => {
+    const color = d.type === 'Hike' ? colors.hike : colors.cut;
+    const sign  = d.bps > 0 ? '+' : '';
+    return `
+      <tr style="border-bottom:1px solid #2a2a3e">
+        <td style="padding:6px 8px;white-space:nowrap">${fedDate(d.date)}</td>
+        <td style="padding:6px 8px;color:${color};font-weight:600">${d.type}</td>
+        <td style="padding:6px 8px;text-align:right;color:${color};font-variant-numeric:tabular-nums">${sign}${d.bps}bps</td>
+        <td style="padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums">${d.rangeAfter}</td>
+      </tr>`;
+  }).join('');
 
-  if (walcl?.length) {
-    const v = walcl[walcl.length - 1].value;
-    document.getElementById('card-bs').textContent = `$${(v / 1_000_000).toFixed(2)}T`;
+  if (decisions.length > DECISIONS_VISIBLE) {
+    const label = decisionsExpanded
+      ? 'Show recent only'
+      : `Show all ${decisions.length} decisions`;
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr><td colspan="4" style="padding:10px 8px">
+        <button type="button" class="timeline-toggle">${label}</button>
+      </td></tr>`);
+    tbody.querySelector('.timeline-toggle').addEventListener('click', () => {
+      decisionsExpanded = !decisionsExpanded;
+      renderDecisionTable(decisions);
+    });
   }
 }
 
@@ -105,8 +97,10 @@ function renderRateHistoryChart(data, decisions) {
   const fedfunds  = data['FEDFUNDS'] || [];
   const effr      = data['EFFR']     || [];
   const effrStart = effr.length > 0 ? effr[0].date : '2099-01-01';
-  const pre       = fedfunds.filter(p => p.date < effrStart).map(p => ({ time: p.date, value: p.value }));
-  const combined  = [...pre, ...toChartPoints(effr)];
+  // FEDFUNDS only contributes if it precedes EFFR inside the window; at the
+  // current window it never does, but the splice stays correct if it moves back.
+  const pre       = fedfunds.filter(p => p.date >= CHART_START && p.date < effrStart).map(p => ({ time: p.date, value: p.value }));
+  const combined  = [...pre, ...toChartPoints(effr.filter(p => p.date >= CHART_START))];
   if (combined.length < 2) return;
 
   const chart = createBaseChart('chart-rate-history', 300);
@@ -118,7 +112,6 @@ function renderRateHistoryChart(data, decisions) {
     bottomColor: hexToRgba(colors.rate, 0.02),
     lineWidth: 2, priceLineVisible: true,
     priceLineStyle: LC.LineStyle.Dashed, lastValueVisible: true,
-    autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 7 } }),
   });
   area.setData(combined);
 
@@ -141,13 +134,10 @@ function renderRateHistoryChart(data, decisions) {
   LC.createSeriesMarkers(area, markers);
 
   fitWithRightPadding(chart, combined.length, 0.05);
-  addZoomControls(chart, 'chart-rate-history', [
-    { label: '5Y', years: 5 }, { label: '10Y', years: 10 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderRateCorridorChart(data) {
-  const cutoff   = nYearsAgo(2);
+  const cutoff   = CHART_START;
   const dfedtaru = filterAfter(data['DFEDTARU'], cutoff);
   const dfedtarl = filterAfter(data['DFEDTARL'], cutoff);
   const effr     = filterAfter(data['EFFR'],     cutoff);
@@ -168,27 +158,51 @@ function renderRateCorridorChart(data) {
   });
   lower.setData(toChartPoints(dfedtarl));
 
+  // EFFR, SOFR and IORB sit within a few basis points of each other, so a solid
+  // white EFFR at full width simply hides the other two. Drawn first and
+  // semi-transparent so they read through it.
   if (effr.length >= 2) {
     const s = chart.addSeries(LC.LineSeries, {
-      color: colors.effr, lineWidth: 2,
+      color: hexToRgba(colors.effr, 0.45), lineWidth: 3,
       priceLineVisible: true, priceLineStyle: LC.LineStyle.Dashed, lastValueVisible: true,
     });
     s.setData(toChartPoints(effr));
+  }
+
+  // SOFR and IORB sit inside the band with EFFR; the three together are what
+  // makes this a corridor chart rather than a target-range chart.
+  const sofr = filterAfter(data['SOFR'], cutoff);
+  if (sofr.length >= 2) {
+    const s = chart.addSeries(LC.LineSeries, {
+      color: colors.sofr, lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+    });
+    s.setData(toChartPoints(sofr));
+  }
+
+  const iorb = filterAfter(data['IORB'], cutoff);
+  if (iorb.length >= 2) {
+    const s = chart.addSeries(LC.LineSeries, {
+      color: colors.iorb, lineWidth: 2, lineStyle: LC.LineStyle.Dotted,
+      priceLineVisible: false, lastValueVisible: true,
+    });
+    s.setData(toChartPoints(iorb));
   }
 
   addChartLegend('chart-rate-corridor', [
     { label: 'Target Upper', color: colors.rate,                  value: `${dfedtaru[dfedtaru.length-1].value.toFixed(2)}%` },
     { label: 'Target Lower', color: hexToRgba(colors.rate, 0.6), value: `${dfedtarl[dfedtarl.length-1].value.toFixed(2)}%` },
     ...(effr.length ? [{ label: 'EFFR', color: colors.effr,      value: `${effr[effr.length-1].value.toFixed(2)}%` }] : []),
+    ...(sofr.length ? [{ label: 'SOFR', color: colors.sofr,      value: `${sofr[sofr.length-1].value.toFixed(2)}%` }] : []),
+    ...(iorb.length ? [{ label: 'IORB', color: colors.iorb,      value: `${iorb[iorb.length-1].value.toFixed(2)}%` }] : []),
   ]);
   fitWithRightPadding(chart, dfedtaru.length);
   addZoomControls(chart, 'chart-rate-corridor', [
-    { label: '1Y', years: 1 }, { label: '2Y', years: 2 },
+    { label: '6M', months: 6 }, { label: '1Y', years: 1 }, { label: 'Max', years: null },
   ], 1);
 }
 
 function renderSepChart(data) {
-  const fedtarmd = data['FEDTARMD'];
+  const fedtarmd = filterAfter(data['FEDTARMD'], CHART_START);
   if (!fedtarmd || fedtarmd.length < 2) return;
 
   const chart = createBaseChart('chart-sep', 220);
@@ -207,13 +221,10 @@ function renderSepChart(data) {
     size: 2, text: `${p.value.toFixed(2)}%`,
   })));
   fitWithRightPadding(chart, fedtarmd.length, 0.005);
-  addZoomControls(chart, 'chart-sep', [
-    { label: '5Y', years: 5 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderReverseRepoChart(data) {
-  const rrpo = data['RRPONTSYD'];
+  const rrpo = filterAfter(data['RRPONTSYD'], CHART_START);
   if (!rrpo || rrpo.length < 2) return;
 
   const chart = createBaseChart('chart-rrpo', 220);
@@ -230,15 +241,12 @@ function renderReverseRepoChart(data) {
     { label: 'O/N RRP', color: colors.rrp, value: `$${rrpo[rrpo.length-1].value.toFixed(0)}B` },
   ]);
   fitWithRightPadding(chart, rrpo.length, 0.04);
-  addZoomControls(chart, 'chart-rrpo', [
-    { label: '3Y', years: 3 }, { label: '5Y', years: 5 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderBalanceSheetChart(data) {
-  const walcl  = data['WALCL'];
-  const treast = data['TREAST'];
-  const wshomcb = data['WSHOMCB'];
+  const walcl  = filterAfter(data['WALCL'], CHART_START);
+  const treast = filterAfter(data['TREAST'], CHART_START);
+  const wshomcb = filterAfter(data['WSHOMCB'], CHART_START);
   if (!walcl || walcl.length < 2) return;
 
   const toB = pts => pts.map(p => ({ time: p.date, value: +(p.value / 1000).toFixed(1) }));
@@ -274,13 +282,10 @@ function renderBalanceSheetChart(data) {
   if (wshomcb?.length)  entries.push({ label: 'MBS',        color: colors.mbs,  value: `$${(wshomcb[wshomcb.length-1].value/1000).toFixed(0)}B` });
   addChartLegend('chart-balance-sheet', entries);
   fitWithRightPadding(chart, walcl.length);
-  addZoomControls(chart, 'chart-balance-sheet', [
-    { label: '5Y', years: 5 }, { label: '10Y', years: 10 }, { label: 'Max', years: null },
-  ]);
 }
 
 function renderReserveBalancesChart(data) {
-  const wresbal = data['WRESBAL'];
+  const wresbal = filterAfter(data['WRESBAL'], CHART_START);
   if (!wresbal || wresbal.length < 2) return;
 
   const chart = createBaseChart('chart-wresbal', 220);
@@ -297,13 +302,120 @@ function renderReserveBalancesChart(data) {
     { label: 'Reserves', color: colors.reserves, value: `$${wresbal[wresbal.length-1].value.toFixed(0)}B` },
   ]);
   fitWithRightPadding(chart, wresbal.length, 0.03);
-  addZoomControls(chart, 'chart-wresbal', [
-    { label: '3Y', years: 3 }, { label: '5Y', years: 5 }, { label: 'Max', years: null },
-  ]);
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+const ORDINALS = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth',
+  'seventh', 'eighth', 'ninth', 'tenth'];
+
+function ordinal(n) {
+  return ORDINALS[n] || `${n}th`;
+}
+
+/** Human decision sentence, generated from the meeting's numeric fields. */
+function decisionSentence(m) {
+  const range = esc(m.target_range);
+  if (m.decision === 'hold') {
+    const streak = m.consecutive_holds > 1
+      ? ` — the ${ordinal(m.consecutive_holds)} consecutive hold`
+      : '';
+    return `Target range held at ${range}${streak}.`;
+  }
+  const verb = m.bps > 0 ? 'Raised' : 'Lowered';
+  return `${verb} ${Math.abs(m.bps)}bps to ${range}.`;
+}
+
+function decisionBadge(m) {
+  if (m.decision === 'hold') return { text: 'HOLD', color: '#a7a7ad' };
+  return m.bps > 0
+    ? { text: `+${m.bps}BPS`, color: colors.hike }
+    : { text: `${m.bps}BPS`,  color: colors.cut  };
+}
+
+/**
+ * Latest meeting card, rendered from config/fomc_meetings.json. Adding a meeting
+ * to that file is the only edit needed here after an FOMC — no page copy changes.
+ */
+function renderLatestMeeting(cfg) {
+  const host = document.getElementById('latest-meeting');
+  if (!host) return;
+
+  const m = cfg?.meetings?.[0];
+  if (!m) { host.style.display = 'none'; return; }
+
+  const badge = decisionBadge(m);
+  const dissenters = m.dissenters || [];
+
+  const dissentBody = dissenters.length
+    ? dissenters.map(d => `
+        <div style="margin-bottom:10px">
+          <div><strong>${esc(d.name)}</strong> <span class="muted">(${esc(d.bank)})</span> — preferred a ${esc(d.preferred)}.</div>
+          ${d.quote ? `<div class="muted" style="font-style:italic;border-left:2px solid #2a2a3e;padding-left:8px;margin-top:4px;font-size:12px">"${esc(d.quote)}"</div>` : ''}
+        </div>`).join('')
+    : '<div>Unanimous. No dissents.</div>';
+
+  const next = cfg.next_meeting
+    ? `Next meeting <strong style="color:#e9e9ea">${esc(cfg.next_meeting.label)}</strong>${cfg.next_meeting.sep_meeting ? ' (SEP)' : ''}`
+    : '';
+
+  host.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <h2 style="font-size:16px;margin:0;color:#f97316">Latest Meeting — ${esc(m.label)}</h2>
+      <span style="background:${badge.color}22;color:${badge.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:0.05em">${badge.text}</span>
+    </div>
+    <div class="two-col-grid" style="gap:12px;margin-top:0">
+      <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
+        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Decision</div>
+        <div style="font-size:13px;color:#e9e9ea;line-height:1.6">${decisionSentence(m)}</div>
+        ${m.note ? `<div class="muted" style="font-size:12px;line-height:1.6;margin-top:8px">${esc(m.note)}</div>` : ''}
+        ${(m.points || []).length ? `<ul style="margin:8px 0 0 0;padding-left:16px;font-size:12px;color:#a7a7ad;line-height:1.7">
+          ${m.points.map(p => `<li>${esc(p)}</li>`).join('')}
+        </ul>` : ''}
+        <div style="font-size:12px;margin-top:10px">
+          <a href="pages/fomc_statements.html" style="color:#7aa2f7;text-decoration:none">Statement Tracker — full redline &rarr;</a>
+        </div>
+      </div>
+      <div style="padding:12px;background:#1a1a2e;border-radius:6px;border:1px solid #2a2a3e">
+        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">Vote — ${esc(m.vote)}</div>
+        <div style="font-size:13px;color:#e9e9ea;line-height:1.6">${dissentBody}</div>
+        ${m.dissent_note ? `<div class="muted" style="font-size:12px;line-height:1.6;margin-top:6px">${esc(m.dissent_note)}</div>` : ''}
+      </div>
+    </div>
+    ${next ? `<div class="muted" style="font-size:12px;margin-top:12px">${next}</div>` : ''}`;
+
+  renderSepCaption(cfg);
+}
+
+/** SEP caption names a specific meeting, so it comes from config too. */
+function renderSepCaption(cfg) {
+  const el = document.getElementById('sep-caption');
+  if (!el) return;
+  const latestSep = (cfg.meetings || []).find(m => m.sep_meeting);
+  const base = cfg.captions?.sep || '';
+  const parts = [base];
+  if (latestSep) {
+    parts.push(`${esc(latestSep.label)} is the latest${latestSep.sep_note ? ': ' + esc(latestSep.sep_note) : '.'}`);
+  }
+  if (cfg.next_meeting?.sep_meeting) {
+    parts.push(`Next projection due at the ${esc(cfg.next_meeting.label)} FOMC.`);
+  }
+  el.innerHTML = parts.filter(Boolean).join(' ');
 }
 
 async function init() {
   renderNav();
+  renderFedStrip();
+  renderGlossary();
+
+  // Meeting narrative is independent of the FRED bundle; a failure in one should
+  // not blank the other.
+  fetchCache('config/fomc_meetings.json')
+    .then(renderLatestMeeting)
+    .catch(err => console.error('FOMC meetings config failed to load:', err));
+
   try {
     const bundle = await fetchFredBundle();
     const data   = {};
@@ -313,8 +425,8 @@ async function init() {
       }
     }
 
-    const decisions = buildDecisionTimeline(data['DFEDTARU'] || []);
-    renderSummaryCards(data, decisions);
+    const decisions = buildDecisionTimeline(data['DFEDTARU'] || [], data['DFEDTARL'] || []);
+    renderDecisionTable(decisions);
 
     const dfedtaru = data['DFEDTARU'];
     const metaEl   = document.getElementById('meta');
@@ -336,8 +448,7 @@ async function init() {
       try { fn(...args); } catch (e) { console.error(`${fn.name}:`, e); }
     }
   } catch (err) {
-    console.error('FOMC init error:', err);
-    document.getElementById('meta').textContent = `Error: ${err.message}`;
+    showLoadError(err, 'FOMC dashboard');
   }
 }
 

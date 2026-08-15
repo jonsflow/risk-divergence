@@ -12,6 +12,45 @@ export const COLORS = {
 };
 
 // ------------------------------------------------------------------
+// Page state
+// ------------------------------------------------------------------
+
+/**
+ * Surface a page-level load failure in the standard place and log it.
+ *
+ * A missing cache is the common case in local dev and needs an actionable
+ * command, not an HTTP code; anything else reports the underlying message so
+ * the failure stays diagnosable. Pages without a #meta element (test,
+ * trade_logic) degrade to console only.
+ *
+ * @param {Error|*} err     - the caught error
+ * @param {string}  context - what was being loaded, for the console line
+ * @param {string}  [target='meta'] - id of the element to write into
+ */
+export function showLoadError(err, context = 'Page', target = 'meta') {
+  const message = err?.message ?? String(err);
+  const missingCache = /HTTP 40[34]/.test(message);
+
+  const el = document.getElementById(target);
+  if (el) {
+    el.textContent = missingCache
+      ? 'Cache missing — run: python3 -m pipeline.run generate'
+      : `Could not load data — ${message}`;
+  }
+  console.error(`${context} failed to load:`, err);
+}
+
+/**
+ * Standard empty state for a container that loaded fine but has nothing to show.
+ * @param {HTMLElement|null} el
+ * @param {string} message
+ */
+export function showEmpty(el, message = 'No data available') {
+  if (!el) return;
+  el.innerHTML = `<div class="state-empty">${message}</div>`;
+}
+
+// ------------------------------------------------------------------
 // Number formatting
 // ------------------------------------------------------------------
 

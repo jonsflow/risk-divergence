@@ -9,29 +9,39 @@ Data is fetched via the `fredapi` Python library using a free API key from [fred
 ## Setup
 
 ```bash
-# Install dependency
+# Install dependencies
 pip install fredapi python-dotenv
 
 # Store API key in .env (gitignored)
 echo "FRED_API_KEY=your_key_here" > .env
 
-# Fetch all series
-python fetch_fred.py
-# Writes: data/fred/{SERIES_ID}.csv
+# Fetch all series into SQLite, then emit the browser bundle
+python3 -m pipeline.run fetch
+python3 -m pipeline.run generate
 ```
 
-## CSV Format
+`FREDFetcher` pulls the full history of every series in `config/fred_config.json`
+into `risk_model.db`; `generate` writes the bundle the browser reads.
 
+## Bundle format
+
+`data/fred/fred_cache.json` is the only FRED file the site loads, via
+`fetchFredBundle()` in `js/core/api.js`.
+
+```json
+{
+  "fetched_at": "2026-08-10T14:21:20Z",
+  "series": { "T10Y2Y": [["2024-01-02", 3.45], ["2024-01-03", 3.47]] }
+}
 ```
-Date,Value
-2024-01-02,3.45
-2024-01-03,3.47
-...
-```
+
+Per-series `data/fred/{ID}.csv` files used to be written alongside it. They were
+removed: nothing read them, the workflow never committed them, and seeding them
+back into SQLite reinserted a stale vintage on every run.
 
 ## Series Reference
 
-All series defined in `fred_config.json`. The `display` field controls the card stat; `freq` controls the change calculation lookback.
+All series defined in `config/fred_config.json`. The `display` field controls the card stat; `freq` controls the change calculation lookback.
 
 ### Financial Conditions (daily)
 
@@ -116,8 +126,9 @@ All series defined in `fred_config.json`. The `display` field controls the card 
 
 ## Adding New Series
 
-1. Add entry to `fred_config.json` under the appropriate category
-2. Run `python fetch_fred.py` to fetch the new CSV
-3. The Gov Data page will render it automatically — no JS changes needed
+1. Add an entry to `config/fred_config.json` under the appropriate category
+2. Run `python3 -m pipeline.run fetch && python3 -m pipeline.run generate`, or
+   just wait for the next scheduled run — the fetcher derives its list from the config
+3. The Gov Data page renders it automatically — no JS changes needed
 
 To find a series ID, search [fred.stlouisfed.org](https://fred.stlouisfed.org) and use the ID from the URL (e.g., `fred.stlouisfed.org/series/T10Y2Y` → ID is `T10Y2Y`).

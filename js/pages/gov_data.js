@@ -1,6 +1,7 @@
 // js/pages/gov_data.js — Government Data (FRED) page (ES module).
 import { renderNav }                                               from '../components/Navigation.js';
 import { fetchFredBundle, fetchCache }                             from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
 import {
   createDashboardChart, fitWithRightPadding, addChartLegend,
   hexToRgba, computePercentile,
@@ -941,8 +942,7 @@ async function init() {
     renderTabContent('overview');
 
   } catch (err) {
-    metaEl.textContent = `Error: ${err.message}`;
-    console.error(err);
+    showLoadError(err, 'Gov data');
   }
 }
 

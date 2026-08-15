@@ -2,7 +2,7 @@
 pipeline/generators/fomc_generator.py — FOMC / policy rates data bundle.
 
 Reads FRED series from SQLite and writes data/fred/fred_cache.json
-(same format as fetch_fred.py's write_bundle, but sourced from DB).
+(same bundle format FREDFetcher writes, but sourced from the DB without refetching).
 
 This generator is optional — FREDFetcher already writes the bundle during fetch.
 Use this when you need to regenerate the bundle from the DB without re-fetching.

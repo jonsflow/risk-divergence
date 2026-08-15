@@ -435,7 +435,7 @@ class DBManager:
         """
         self.create_schema()
         data_dir = Path(data_dir)
-        total_daily = total_hourly = total_fred = 0
+        total_daily = total_hourly = 0
 
         # --- Yahoo Finance daily CSVs: data/{symbol}.csv ---
         for csv_path in sorted(data_dir.glob("*.csv")):
@@ -508,33 +508,7 @@ class DBManager:
             except Exception as e:
                 print(f"  WARNING: could not seed {csv_path}: {e}")
 
-        # --- FRED CSVs: data/fred/{SERIES_ID}.csv ---
-        fred_dir = data_dir / 'fred'
-        if fred_dir.exists():
-            for csv_path in sorted(fred_dir.glob("*.csv")):
-                series_id = csv_path.stem
-                rows = []
-                try:
-                    with open(csv_path, newline='', encoding='utf-8') as f:
-                        reader = csv.DictReader(f)
-                        for row in reader:
-                            date = row.get('Date', '').strip()
-                            val  = row.get('Value', '').strip()
-                            if not date or not val:
-                                continue
-                            try:
-                                rows.append((date, float(val)))
-                            except ValueError:
-                                continue
-                    if rows:
-                        self.upsert_fred(series_id, rows)
-                        total_fred += len(rows)
-                        if verbose:
-                            print(f"  fred   {series_id}: {len(rows)} rows")
-                except Exception as e:
-                    print(f"  WARNING: could not seed FRED {csv_path}: {e}")
-
-        print(f"\nSeed complete: {total_daily} daily bars, {total_hourly} hourly bars, {total_fred} FRED rows")
+        print(f"\nSeed complete: {total_daily} daily bars, {total_hourly} hourly bars")
 
 
 # ------------------------------------------------------------------

@@ -13,6 +13,21 @@ function isLocalDev() {
   return LOCALHOSTS.includes(window.location.hostname);
 }
 
+/**
+ * The review UI is only useful when comments can reach the dev, which means
+ * scripts/dev_server.py is serving and exposing /__review. Under `python3 -m
+ * http.server` that 404s, and offering comment buttons whose output nobody can
+ * read is worse than offering nothing.
+ */
+async function syncEndpointAvailable() {
+  try {
+    const res = await fetch('/__review', { cache: 'no-store' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 function pageKey() {
   // Use pathname so it works regardless of port / host
   return window.location.pathname;
@@ -396,8 +411,9 @@ function observeDynamicCards(store) {
 }
 
 /* ------------------------------------------------------------------ */
-function init() {
+async function init() {
   if (!isLocalDev()) return;
+  if (!(await syncEndpointAvailable())) return;
   const store = loadStore();
   injectStyles();
   attachToAllCards(store);

@@ -1,0 +1,150 @@
+{
+  "_comment": "Acronyms used across the Federal Reserve pages. Rendered collapsed above the attribution footer by js/components/Glossary.js. `url` should point at the authoritative source — the FRED series page for a series, the Board's own page for a concept. Terms with a `match` list are also auto-linked where those strings appear in page text; omit `match` to keep a term glossary-only, which is right for wording too generic to tag safely.",
+  "terms": [
+    {
+      "term": "FOMC",
+      "full": "Federal Open Market Committee",
+      "note": "Sets the federal funds target range; meets eight times a year.",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomc.htm",
+      "match": [
+        "FOMC"
+      ]
+    },
+    {
+      "term": "SEP",
+      "full": "Summary of Economic Projections",
+      "note": "The \"dot plot\". Published at four of the eight meetings — March, June, September, December.",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+      "match": [
+        "SEP"
+      ]
+    },
+    {
+      "term": "EFFR",
+      "full": "Effective Federal Funds Rate",
+      "note": "Volume-weighted median of overnight interbank lending. The rate policy actually targets.",
+      "url": "https://fred.stlouisfed.org/series/EFFR",
+      "match": [
+        "EFFR"
+      ]
+    },
+    {
+      "term": "SOFR",
+      "full": "Secured Overnight Financing Rate",
+      "note": "Overnight borrowing secured by Treasuries; the reference rate that replaced USD LIBOR.",
+      "url": "https://fred.stlouisfed.org/series/SOFR",
+      "match": [
+        "SOFR"
+      ]
+    },
+    {
+      "term": "IORB",
+      "full": "Interest on Reserve Balances",
+      "note": "What the Fed pays banks on reserves. The main administered rate in an ample-reserves regime.",
+      "url": "https://fred.stlouisfed.org/series/IORB",
+      "match": [
+        "IORB"
+      ]
+    },
+    {
+      "term": "ON RRP",
+      "full": "Overnight Reverse Repurchase Agreements",
+      "note": "Cash lent to the Fed overnight, mostly by money market funds. A liability — it drains reserves.",
+      "url": "https://fred.stlouisfed.org/series/RRPONTSYD",
+      "match": [
+        "ON RRP",
+        "O/N RRP"
+      ]
+    },
+    {
+      "term": "SOMA",
+      "full": "System Open Market Account",
+      "note": "The portfolio the New York Desk manages on the FOMC's instruction.",
+      "url": "https://www.newyorkfed.org/markets/soma-portfolio-statistics",
+      "match": [
+        "SOMA"
+      ]
+    },
+    {
+      "term": "WALCL",
+      "full": "Fed total assets",
+      "note": "\"The balance sheet\" in ordinary usage. Reserve balances are a liability, not part of this figure.",
+      "url": "https://fred.stlouisfed.org/series/WALCL",
+      "match": [
+        "WALCL"
+      ]
+    },
+    {
+      "term": "WRESBAL",
+      "full": "Reserve balances",
+      "note": "Bank deposits at the Fed. The largest liability on the balance sheet.",
+      "url": "https://fred.stlouisfed.org/series/WRESBAL",
+      "match": [
+        "WRESBAL"
+      ]
+    },
+    {
+      "term": "MBS",
+      "full": "Mortgage-backed securities",
+      "note": "Held as WSHOMCB. Currently running off rather than being reinvested.",
+      "url": "https://fred.stlouisfed.org/series/WSHOMCB",
+      "match": [
+        "MBS",
+        "WSHOMCB"
+      ]
+    },
+    {
+      "term": "QE / QT",
+      "full": "Quantitative easing / tightening",
+      "note": "Expanding or shrinking the balance sheet through asset purchases or runoff.",
+      "url": "https://www.federalreserve.gov/monetarypolicy/bst_openmarketops.htm",
+      "match": [
+        "QT",
+        "QE"
+      ]
+    },
+    {
+      "term": "Ample reserves",
+      "full": "The current operating regime",
+      "note": "Reserves kept plentiful enough that the funds rate is set by administered rates rather than by scarcity.",
+      "url": "https://www.federalreserve.gov/monetarypolicy/policy-normalization.htm",
+      "match": [
+        "ample reserves"
+      ]
+    },
+    {
+      "term": "FAIT",
+      "full": "Flexible Average Inflation Targeting",
+      "note": "2020–2025 framework permitting inflation above 2% to offset earlier shortfalls. Abandoned Aug 2025.",
+      "url": "https://www.federalreserve.gov/monetarypolicy/review-of-monetary-policy-strategy-tools-and-communications.htm",
+      "match": [
+        "FAIT"
+      ]
+    },
+    {
+      "term": "Core PCE",
+      "full": "Personal Consumption Expenditures price index, ex food and energy",
+      "note": "The Fed's preferred inflation gauge; the 2% target is stated in headline PCE.",
+      "url": "https://fred.stlouisfed.org/series/PCEPILFE",
+      "match": [
+        "Core PCE"
+      ]
+    },
+    {
+      "term": "Breakeven",
+      "full": "Breakeven inflation rate",
+      "note": "Nominal Treasury yield minus TIPS yield — market-implied average inflation over that horizon.",
+      "url": "https://fred.stlouisfed.org/series/T10YIE",
+      "match": [
+        "breakeven",
+        "breakevens"
+      ]
+    },
+    {
+      "term": "Target range",
+      "full": "Federal funds target range",
+      "note": "The band the FOMC sets; DFEDTARU and DFEDTARL are its upper and lower bounds.",
+      "url": "https://fred.stlouisfed.org/series/DFEDTARU"
+    }
+  ]
+}

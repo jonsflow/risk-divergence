@@ -127,8 +127,10 @@ each file's own heading.
 - `fred-data.md` — FRED Data
 - `gov-risk-score-research.md` — Research & Implementation Plan
 - `fomc-june-2026-research.md` — FOMC Meeting, June 17 2026
+- `fomc-july-2026-review.md` — FOMC July 28–29, 2026: Statement, Warsh Press Conference, and the News Around It
 - `economic-calendar-integration.md` — Finnhub API
 - `data-requirements-analysis.md` — Trading Rules vs. Inventory
 - `workflows.md` — GitHub Actions Workflows
+- `fomc-config.md` — Updating the Fed Pages After an FOMC Meeting
 - `components.md` — Component Reference
 - `multi_agent_analyst_design.md` — Design Spec

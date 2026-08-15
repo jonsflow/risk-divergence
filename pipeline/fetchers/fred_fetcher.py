@@ -1,7 +1,7 @@
 """
 pipeline/fetchers/fred_fetcher.py — Fetch FRED series into SQLite + JSON bundle.
 
-Replaces fetch_fred.py.
+Sole source of FRED data: fetches into SQLite and writes the browser bundle.
 Reads fred_config.json for series list.
 Requires FRED_API_KEY env var (loaded from .env via python-dotenv).
 """
@@ -56,22 +56,11 @@ class FREDFetcher(BaseFetcher):
                 s = fred.get_series(series_id).dropna()
                 rows = [(str(d.date()), float(v)) for d, v in s.items()]
                 self.db.upsert_fred(series_id, rows)
-                # Also write individual CSV (kept for reference / backwards compat)
-                _save_csv(series_id, rows)
                 all_fetched[series_id] = rows
             except Exception as e:
                 print(f"  WARNING: failed to fetch {series_id}: {e}")
 
         _write_bundle(all_fetched)
-
-
-def _save_csv(series_id: str, rows: list) -> None:
-    path = FRED_OUT_DIR / f"{series_id}.csv"
-    with open(path, 'w') as f:
-        f.write("Date,Value\n")
-        for date, value in rows:
-            f.write(f"{date},{value}\n")
-    print(f"  Saved {len(rows)} rows → {path}")
 
 
 def _write_bundle(all_series: dict) -> None:

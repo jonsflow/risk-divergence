@@ -1,6 +1,7 @@
 // js/pages/correlation.js — Cross-Asset Correlation page (ES module).
 import { renderNav }                                          from '../components/Navigation.js';
 import { fetchCorrelations, fetchCache }                      from '../core/api.js';
+import { showLoadError }   from '../core/utils.js';
 import {
   createDashboardChart, fitWithRightPadding, addChartLegend,
   hexToRgba, last, computePercentile,
@@ -166,9 +167,7 @@ async function init() {
       renderAll(data, HISTORY_DAYS);
     });
   } catch (err) {
-    const metaEl = document.getElementById('meta');
-    if (metaEl) metaEl.textContent = `Error: ${err.message}`;
-    console.error(err);
+    showLoadError(err, 'Correlations');
   }
 }
 

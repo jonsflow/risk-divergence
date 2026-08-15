@@ -1,0 +1,217 @@
+{
+  "_comment": "Fed Chair page content. Hand-maintained; update after each FOMC or notable policy event. `doctrine` scores the framework the Chair campaigned on against the Committee's record — edit `status` and `record` rather than page copy. `timeline` is newest-last in this file (append new events); the page renders it newest-first. Chair identity and meeting facts live in config/fomc_meetings.json.",
+  "page": {
+    "title": "Fed Chair Transition: {predecessor} → {name}",
+    "intro": "{name} was confirmed as Fed Chair on {confirmed_long}, succeeding {predecessor}. He inherited a $6T+ balance sheet, inflation that had run above target for years, and a communications framework built on forward guidance he had spent a decade criticizing. This page tracks the four indicators that define his mandate, the record of policy decisions as it accumulates, and how the framework he campaigned on is holding up against what the Committee actually does.",
+    "doc_title": "Fed Chair Transition — {predecessor_last} → {last}",
+    "description": "Fed Chair dashboard — {predecessor} vs {last} policy framework, balance sheet, inflation, and rate indicators.",
+    "sections": {
+      "scorecard": "{last} Scorecard — What He Inherits",
+      "doctrine_sub": "What {name} said he would do, scored against what the Committee has done since.",
+      "timeline": "Policy Timeline: What {last} Inherits"
+    },
+    "captions": {
+      "inflation": "Blue = Core PCE · Green = Core CPI · Red dashed = 2% hard target (no averaging under {last})",
+      "rates": "EFFR — effective fed funds rate · Shaded bands mark the chair",
+      "reserves": "Green = Reserves (WRESBAL) · Purple = O/N RRP (RRPONTSYD) · {last} goal: drain to \"scarce reserves\"",
+      "pace": "Monthly change, not level. Bars are Treasury bills bought; MBS and Net are $B/month. Total assets keep rising because reserve management requires it — the pace is the part {last} controls. Incomplete current month excluded."
+    }
+  },
+  "eras": [
+    {
+      "name": "Powell Era",
+      "period": "2018–2026",
+      "subtitle": "Flexible Average Inflation Targeting",
+      "color": "#7aa2f7",
+      "bullets": [
+        "FAIT (2020–2025): deliberately allowed inflation to run above 2%",
+        "Quarterly SEP + dot plot as primary forward guidance tool",
+        "Balance sheet used as secondary stimulus lever (QE)",
+        "Gradual QT from ~$9T peak at ~$95B/month cap",
+        "Strict 2% target restored at Jackson Hole Aug 2025",
+        "Reactive: cut 50bps Sep 2024 despite Core PCE above 2%"
+      ]
+    },
+    {
+      "name": "Warsh Framework",
+      "period": "2026–",
+      "subtitle": "\"Inflation is a choice\"",
+      "color": "#f97316",
+      "bullets": [
+        "Strict 2% target — no averaging, no overshoot tolerance",
+        "Eliminate dot plot and quarterly forward guidance",
+        "Balance sheet = co-equal tool: aggressive QT as primary lever",
+        "\"QT for cuts\": drain balance sheet, allow rate cuts simultaneously",
+        "Focus on underlying/trend inflation, not transitory swings",
+        "Ample-reserves regime under task-force review — advantages, disadvantages, alternatives",
+        "Five task forces: monetary ops, communications, data sources, productivity, inflation causes"
+      ],
+      "quote": {
+        "text": "If the Fed had kept a smaller balance sheet… I think interest rates could be lower, inflation could be better and the economy could be stronger.",
+        "attribution": "Kevin Warsh, Senate Banking Committee, April 21, 2026"
+      }
+    }
+  ],
+  "doctrine": [
+    {
+      "label": "Balance Sheet",
+      "stated": "\"The balance sheet should be as small as practicable to conduct operations\" — interest rate policy as the primary lever, with the Fed running a footprint he has called \"trillions larger than it needs to be.\"",
+      "status": {
+        "text": "Directionally consistent",
+        "color": "#f59e0b"
+      },
+      "record": "Total assets are still rising — reserve management requires it, and the Fed states no endpoint for balance sheet reduction, only that reserves stay \"within the ample range.\" But the pace has roughly halved: Treasury purchases ran ~$53B/month across Feb–Apr and ~$29B/month across Jun–Jul, with MBS runoff continuing throughout. The ample-reserves regime that compels the buying is under review by his own balance sheet task force.",
+      "sources": [
+        {
+          "label": "Monetary Policy Report, Jul 2026",
+          "url": "https://www.federalreserve.gov/monetarypolicy/2026-07-mpr-part2.htm"
+        },
+        {
+          "label": "Warsh testimony, Jul 14 2026",
+          "url": "https://www.federalreserve.gov/newsevents/testimony/warsh20260714a.htm"
+        },
+        {
+          "label": "Axios: balance sheet battles",
+          "url": "https://www.axios.com/2026/05/20/warsh-federal-reserve-balance-sheet"
+        }
+      ]
+    },
+    {
+      "label": "\"QT for Cuts\"",
+      "stated": "Drain the balance sheet and allow short rates to fall at the same time, without reigniting inflation.",
+      "status": {
+        "text": "Untested",
+        "color": "#a7a7ad"
+      },
+      "record": "Neither leg has happened. No cut since December 2025, and the balance sheet is growing rather than draining — though the purchase pace is slowing."
+    },
+    {
+      "label": "No More Dot Plot",
+      "stated": "Eliminate quarterly forward guidance and the Summary of Economic Projections.",
+      "status": {
+        "text": "Partial",
+        "color": "#f59e0b"
+      },
+      "record": "Forward guidance is gone from the statement, which now runs ~130 words. The SEP itself survives — June published a dot plot. A communications task force is reviewing the rest; the next SEP is September 15–16."
+    },
+    {
+      "label": "Inflation Measurement",
+      "stated": "Judge policy on underlying/trend inflation rather than headline prints driven by one-time or geopolitical factors.",
+      "status": {
+        "text": "In evidence",
+        "color": "#34d399"
+      },
+      "record": "Warsh argues the record cumulatively — 63 months above target, consumer prices +20.8% over five years — and has declined to treat single soft prints as decisive. A data-inputs task force is already at work."
+    }
+  ],
+  "timeline": [
+    {
+      "date": "2018-02-05",
+      "event": "Powell confirmed as Fed Chair",
+      "context": "Balance sheet ~$4.4T · Rate: 1.25–1.5%",
+      "era": "powell"
+    },
+    {
+      "date": "2019-07-31",
+      "event": "First Powell-era cut (−25bps)",
+      "context": "Insurance cut; trade war concerns",
+      "era": "powell"
+    },
+    {
+      "date": "2020-03-15",
+      "event": "Emergency cuts to 0–0.25%; unlimited QE",
+      "context": "COVID shock; balance sheet begins surge toward $9T",
+      "era": "powell"
+    },
+    {
+      "date": "2020-08-27",
+      "event": "FAIT adopted at Jackson Hole",
+      "context": "Warsh later calls this the direct cause of 2022 surge",
+      "era": "powell"
+    },
+    {
+      "date": "2021-11-03",
+      "event": "Taper announced; QE wind-down begins",
+      "context": "Balance sheet near $8.6T · CPI at 6.2%",
+      "era": "powell"
+    },
+    {
+      "date": "2022-03-17",
+      "event": "First hike of cycle (+25bps)",
+      "context": "Rate: 0.25–0.5% · Headline CPI above 8%",
+      "era": "powell"
+    },
+    {
+      "date": "2022-06-01",
+      "event": "QT begins ($47.5B/mo → $95B/mo cap)",
+      "context": "Drawdown starts from ~$9T peak",
+      "era": "powell"
+    },
+    {
+      "date": "2023-07-27",
+      "event": "Last hike: 5.25–5.5% (22-year high)",
+      "context": "Core PCE still ~4.2% at peak rate",
+      "era": "powell"
+    },
+    {
+      "date": "2024-09-19",
+      "event": "First cut of easing cycle (−50bps)",
+      "context": "Fed pivots; Core PCE still above 2%",
+      "era": "powell"
+    },
+    {
+      "date": "2025-08-22",
+      "event": "FAIT abandoned — strict 2% target restored",
+      "context": "Jackson Hole 2025; ahead of Warsh era",
+      "era": "powell"
+    },
+    {
+      "date": "2026-04-21",
+      "event": "Warsh Senate confirmation hearing",
+      "context": "\"QT for cuts\" · eliminate dot plot · vows independence",
+      "era": "warsh"
+    },
+    {
+      "date": "2026-04-29",
+      "event": "Powell's last FOMC meeting",
+      "context": "Rates held 3.50–3.75%. Final meeting under Powell.",
+      "era": "powell"
+    },
+    {
+      "date": "2026-05-13",
+      "event": "Warsh confirmed as Fed Chair",
+      "context": "Senate confirmation vote. Powell remains on Board of Governors.",
+      "era": "warsh"
+    },
+    {
+      "date": "2026-06-17",
+      "event": "Warsh first FOMC: rates held, statement overhaul",
+      "context": "Held 3.50–3.75% (12-0). Statement cut to ~130 words, forward guidance removed. Dot plot: 9/18 project ≥1 hike. Five task forces announced.",
+      "era": "warsh"
+    },
+    {
+      "date": "2026-07-09",
+      "event": "Task force leadership named",
+      "context": "15 outside experts across communications, balance sheet, data inputs, productivity, and the inflation framework.",
+      "era": "warsh"
+    },
+    {
+      "date": "2026-07-29",
+      "event": "Second Warsh FOMC: held 3.50–3.75%, vote 9–3",
+      "context": "Hammack, Kashkari and Logan dissent for a 25bp hike — first same-direction trio since Sep 2016. Economic assessment unchanged word-for-word from June. 30-yr Treasury +12bp to 5.21%, a 19-year high.",
+      "era": "warsh"
+    },
+    {
+      "date": "2026-07-31",
+      "event": "All three dissenters explain publicly",
+      "context": "Hammack: pressures \"broadening rather than fading.\" Kashkari: tighten incrementally against entrenchment. Logan: \"without any policy restraint, inflation will likely continue to trend above target.\"",
+      "era": "warsh"
+    },
+    {
+      "date": "2026-08-07",
+      "event": "July payrolls −23,000; unemployment 4.1%",
+      "context": "vs +83–95k consensus, with −146k of prior revisions. Participation 61.4%, a 5-year low — the unemployment rate fell because the labor force shrank.",
+      "era": "warsh"
+    }
+  ]
+}

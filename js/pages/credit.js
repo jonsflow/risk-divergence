@@ -4,7 +4,7 @@
 
 import { renderNav }            from '../components/Navigation.js';
 import { fetchFredBundle }      from '../core/api.js';
-import { calculateMA, fmt }     from '../core/utils.js';
+import { calculateMA, fmt, showLoadError } from '../core/utils.js';
 import { createDashboardChart, fitWithRightPadding, addChartLegend, hexToRgba, computePercentile, colors } from '../core/chart-utils.js';
 
 const LC = window.LightweightCharts;
@@ -168,9 +168,7 @@ async function init() {
       applySignal(state.allPoints);
     });
   } catch (err) {
-    const meta = document.getElementById('meta');
-    if (meta) meta.textContent = `Error: ${err.message}`;
-    console.error(err);
+    showLoadError(err, 'Credit spreads');
   }
 }
 
