@@ -47,6 +47,24 @@ function formatValue(v) {
   return v.toFixed(3);
 }
 
+/**
+ * Month-over-month for a monthly series, matched on the previous calendar month
+ * rather than the previous array element — CPI and unemployment have no
+ * 2025-10-01 observation, so a positional step spans two months there.
+ * @returns {string|null} e.g. "+0.22% MoM"
+ */
+function monthOverMonth(points, freq) {
+  if (freq !== 'monthly' || points.length < 2) return null;
+  const cur = points[points.length - 1];
+  const d = new Date(cur.date + 'T00:00:00');
+  d.setMonth(d.getMonth() - 1);
+  const key = d.toISOString().slice(0, 10);
+  const prev = points.find(p => p.date === key);
+  if (!prev || prev.value === 0) return null;
+  const mom = ((cur.value - prev.value) / Math.abs(prev.value)) * 100;
+  return `${mom >= 0 ? '+' : ''}${mom.toFixed(2)}% MoM`;
+}
+
 function computeStats(points, display, freq) {
   if (!points || points.length < 2)
     return { displayValue: 'N/A', displayLabel: '', change: null, changeStr: '', chgLabel: '' };
@@ -74,6 +92,9 @@ function computeStats(points, display, freq) {
         change: absChange,
         changeStr: absChange !== null ? `${absChange >= 0 ? '+' : ''}${formatValue(absChange)}` : '',
         chgLabel,
+        // For an inflation print the monthly change is the news; the annual rate
+        // is the level. Both, rather than a choice between them.
+        secondary: monthOverMonth(points, freq),
       };
     }
     return { displayValue: 'N/A', displayLabel: 'YoY', change: null, changeStr: '', chgLabel };
@@ -166,6 +187,7 @@ function renderSeriesCard(series, points, color) {
       <span class="asset-price">${stats.displayValue}${labelHTML}</span>
       ${changeHTML}
     </div>
+    ${stats.secondary ? `<div class="muted" style="font-size:11px;margin-top:2px">${stats.secondary}</div>` : ''}
     ${dateHTML}
     <svg class="asset-sparkline" id="${sparkId}" width="100%" height="52"></svg>
     <div class="muted" style="font-size:10px;text-align:right;margin-top:2px">${series.units}</div>
