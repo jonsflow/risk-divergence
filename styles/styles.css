@@ -983,3 +983,40 @@ select:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .gloss, .gloss::after { transition: none; }
 }
+
+/* FOMC dual-mandate block — prints and distance from target, not charts. */
+.mandate-leg {
+  padding: 12px;
+  background: #1a1a2e;
+  border-radius: 6px;
+  border: 1px solid #2a2a3e;
+}
+.mandate-leg-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f97316;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.mandate-stat {
+  display: grid;
+  grid-template-columns: 6.5rem auto 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+.mandate-k { font-size: 12px; color: #a7a7ad; }
+.mandate-v {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e9e9ea;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.mandate-sub { font-size: 11px; color: #6b7280; }
+@media (max-width: 520px) {
+  .mandate-stat { grid-template-columns: 1fr auto; }
+  .mandate-sub { grid-column: 1 / -1; }
+}
+.mandate-new { color: #34d399; font-weight: 600; }

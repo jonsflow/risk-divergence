@@ -33,7 +33,8 @@
         { "id": "PCEPILFE", "name": "Core PCE",            "units": "YoY%", "display": "pct_yoy", "freq": "monthly" },
         { "id": "CPILFESL", "name": "Core CPI",            "units": "YoY%", "display": "pct_yoy", "freq": "monthly" },
         { "id": "CPIAUCSL", "name": "Headline CPI",        "units": "YoY%", "display": "pct_yoy", "freq": "monthly" },
-        { "id": "PPIACO",   "name": "PPI All Commodities", "units": "YoY%", "display": "pct_yoy", "freq": "monthly" }
+        { "id": "PPIACO",   "name": "PPI All Commodities", "units": "YoY%", "display": "pct_yoy", "freq": "monthly" },
+        { "id": "PPIFES",   "name": "Core PPI",            "units": "YoY%", "display": "pct_yoy", "freq": "monthly" }
       ]
     },
     {

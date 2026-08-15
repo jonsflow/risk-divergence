@@ -15,7 +15,12 @@ const FOMC_SERIES = [
   'DFEDTARU', 'DFEDTARL', 'EFFR', 'IORB', 'SOFR', 'SOFR30DAYAVG',
   'WALCL', 'FEDTARMD', 'RRPONTSYD', 'WRESBAL', 'TREAST', 'WSHOMCB',
   'FEDFUNDS',
+  // Dual mandate. The page otherwise shows only the instruments, not the
+  // objectives the Committee sets them against.
+  'PCEPILFE', 'CPILFESL', 'PPIFES', 'UNRATE', 'PAYEMS',
 ];
+
+const PCE_TARGET = 2.0;
 
 // Matches the Fed Chair page so the two can be read against each other. The
 // question is how current policy moves these series, which a decade of history
@@ -89,8 +94,117 @@ function renderDecisionTable(decisions) {
     tbody.querySelector('.timeline-toggle').addEventListener('click', () => {
       decisionsExpanded = !decisionsExpanded;
       renderDecisionTable(decisions);
+    renderDualMandate(data, bundle.fetched_at, bundle.observed_at);
     });
   }
+}
+
+/* --------------------------------------------------------- dual mandate -- */
+
+// FRED stamps an observation with its reference period, not its release date:
+// a CPI reading dated 2026-07-01 is the July print, published mid-August. Show
+// the period as a period, and the release date separately when we know it.
+const PERIOD = { month: 'short', year: 'numeric' };
+const refPeriod = d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', PERIOD);
+
+// `observed_at` is the run that first carried the value — effectively its release
+// date. What a reader needs is not the date itself but whether it is new, so
+// recent arrivals are called out and older ones stated plainly.
+const ARRIVED = { month: 'short', day: 'numeric' };
+function arrival(iso) {
+  if (!iso) return '';
+  const days = Math.floor((Date.now() - new Date(iso + 'T00:00:00').getTime()) / 86_400_000);
+  const when = new Date(iso + 'T00:00:00').toLocaleDateString('en-US', ARRIVED);
+  if (days <= 0) return ` · <span class="mandate-new">new today</span>`;
+  if (days <= 5) return ` · <span class="mandate-new">new ${when}</span>`;
+  return ` · ${when}`;
+}
+
+
+
+/** Change against the same calendar month a year / a month earlier. */
+function changeVs(points, unit) {
+  if (!points?.length) return null;
+  const cur = points[points.length - 1];
+  const d = new Date(cur.date + 'T00:00:00');
+  if (unit === 'year') d.setFullYear(d.getFullYear() - 1);
+  else                 d.setMonth(d.getMonth() - 1);
+  const key = d.toISOString().slice(0, 10);
+  const prev = points.find(p => p.date === key);
+  if (!prev || !prev.value) return null;
+  return { value: (cur.value / prev.value - 1) * 100, date: cur.date };
+}
+
+/** Absolute month-over-month difference, for level series like payrolls. */
+function diffVsPriorMonth(points) {
+  if (!points?.length) return null;
+  const cur = points[points.length - 1];
+  const d = new Date(cur.date + 'T00:00:00');
+  d.setMonth(d.getMonth() - 1);
+  const prev = points.find(p => p.date === d.toISOString().slice(0, 10));
+  return prev ? { value: cur.value - prev.value, date: cur.date } : null;
+}
+
+function statLine(label, value, sub, color) {
+  return `
+    <div class="mandate-stat">
+      <span class="mandate-k">${label}</span>
+      <span class="mandate-v"${color ? ` style="color:${color}"` : ''}>${value}</span>
+      <span class="mandate-sub">${sub}</span>
+    </div>`;
+}
+
+/**
+ * Where each leg of the dual mandate stands. Prints and distance from target —
+ * the trajectory against the 2% line lives on the Fed Chair page, which frames
+ * it against that chair's doctrine rather than against this meeting.
+ */
+function renderDualMandate(data, fetchedAt, observedAt = {}) {
+  const host = document.getElementById('dual-mandate');
+  if (!host) return;
+
+  const pce  = changeVs(data['PCEPILFE'], 'year');
+  const cpi  = changeVs(data['CPILFESL'], 'month');
+  const ppi  = changeVs(data['PPIFES'],   'month');
+  const un   = data['UNRATE']?.[data['UNRATE'].length - 1] ?? null;
+  const jobs = diffVsPriorMonth(data['PAYEMS']);
+
+  const pct = v => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+  const got = id => arrival(observedAt[id]);
+  const gap = pce ? pce.value - PCE_TARGET : null;
+
+  const price = [
+    pce ? statLine('Core PCE', `${pce.value.toFixed(2)}%`,
+            `${refPeriod(pce.date)} y/y${got('PCEPILFE')} · ${gap > 0 ? '+' : ''}${gap.toFixed(2)}pp vs ${PCE_TARGET.toFixed(1)}% target`,
+            gap > 0.5 ? colors.hike : gap > 0 ? '#f59e0b' : colors.cut)
+        : statLine('Core PCE', '—', 'awaiting data'),
+    cpi ? statLine('Core CPI', pct(cpi.value), `${refPeriod(cpi.date)} m/m${got('CPILFESL')}`) : '',
+    ppi ? statLine('Core PPI', pct(ppi.value), `${refPeriod(ppi.date)} m/m${got('PPIFES')}`)
+        : statLine('Core PPI', '—', 'next scheduled run'),
+  ].join('');
+
+  const employment = [
+    un   ? statLine('Unemployment', `${un.value.toFixed(1)}%`, `${refPeriod(un.date)}${got('UNRATE')}`) : '',
+    jobs ? statLine('Payrolls', `${jobs.value >= 0 ? '+' : ''}${Math.round(jobs.value).toLocaleString('en-US')}k`,
+            `${refPeriod(jobs.date)} m/m${got('PAYEMS')}`, jobs.value < 0 ? colors.hike : colors.cut) : '',
+  ].join('');
+
+  host.innerHTML = `
+    <h2 style="font-size:16px;margin:0 0 4px 0;color:#f97316">Dual Mandate</h2>
+    <div class="muted" style="font-size:12px;margin-bottom:14px">
+      What the Committee sets policy against. Core PCE is the target measure; CPI and PPI are the monthly prints that move ahead of it.
+      Each figure shows the period it covers and, where known, the day we received it — so a print the market is still digesting is visible as new.${fetchedAt ? ` Data pulled ${esc(fetchedAt.slice(0, 10))}.` : ''}
+    </div>
+    <div class="two-col-grid" style="gap:12px;margin-top:0">
+      <div class="mandate-leg">
+        <div class="mandate-leg-title">Price stability</div>
+        ${price}
+      </div>
+      <div class="mandate-leg">
+        <div class="mandate-leg-title">Maximum employment</div>
+        ${employment}
+      </div>
+    </div>`;
 }
 
 function renderRateHistoryChart(data, decisions) {
@@ -427,6 +541,7 @@ async function init() {
 
     const decisions = buildDecisionTimeline(data['DFEDTARU'] || [], data['DFEDTARL'] || []);
     renderDecisionTable(decisions);
+    renderDualMandate(data, bundle.fetched_at, bundle.observed_at);
 
     const dfedtaru = data['DFEDTARU'];
     const metaEl   = document.getElementById('meta');

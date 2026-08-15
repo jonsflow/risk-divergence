@@ -63,15 +63,66 @@ class FREDFetcher(BaseFetcher):
         _write_bundle(all_fetched)
 
 
+def _observed_at(all_series: dict, previous: dict) -> dict:
+    """
+    The date each series' newest observation first arrived.
+
+    FRED stamps an observation with its reference period, not its release date: a
+    CPI reading dated 2026-07-01 is the July print, published in mid-August. A
+    reader wants to know whether a number is new — whether the market is still
+    digesting it — and the reference period cannot answer that.
+
+    We do not need to ask anyone when a print was published. If a series' newest
+    observation changed between one run and the next, we received it on this run.
+    The previous stamps are read back out of the committed bundle, which the
+    workflow commits every run and is therefore the durable record.
+
+    A series whose newest observation is unchanged keeps its existing stamp. One
+    with no prior record is left unknown rather than stamped with today: the first
+    run after this ships has nothing to compare against, and dating every series
+    to that run would be the same false precision this replaces.
+    """
+    prev_series = previous.get("series") or {}
+    prev_latest = {sid: rows[-1][0] for sid, rows in prev_series.items() if rows}
+    prev_stamp = previous.get("observed_at") or {}
+    today = datetime.date.today().isoformat()
+
+    stamps = {}
+    for sid, rows in all_series.items():
+        if not rows:
+            continue
+        if sid not in prev_latest:
+            stamps[sid] = None
+        elif prev_latest[sid] != rows[-1][0]:
+            stamps[sid] = today
+        else:
+            stamps[sid] = prev_stamp.get(sid)
+    return stamps
+
+
+def _read_existing_bundle() -> dict:
+    if not BUNDLE_PATH.exists():
+        return {}
+    try:
+        return json.loads(BUNDLE_PATH.read_text())
+    except json.JSONDecodeError:
+        return {}          # unreadable bundle: stamps restart rather than crash
+
+
 def _write_bundle(all_series: dict) -> None:
+    stamps = _observed_at(all_series, _read_existing_bundle())
     bundle = {
         "fetched_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "observed_at": stamps,
         "series": {sid: rows for sid, rows in all_series.items()},
     }
     with open(BUNDLE_PATH, 'w') as f:
         json.dump(bundle, f, separators=(",", ":"))
     size_kb = BUNDLE_PATH.stat().st_size / 1024
     print(f"  Bundle → {BUNDLE_PATH}  ({len(all_series)} series, {size_kb:.0f} KB)")
+    fresh = sorted(sid for sid, d in stamps.items() if d == datetime.date.today().isoformat())
+    if fresh:
+        print(f"  New observations this run: {', '.join(fresh)}")
 
 
 if __name__ == '__main__':
