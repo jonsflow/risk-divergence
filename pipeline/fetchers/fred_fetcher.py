@@ -23,6 +23,24 @@ CONFIG_PATH = pathlib.Path("config/fred_config.json")
 FRED_OUT_DIR = pathlib.Path("data/fred")
 BUNDLE_PATH = FRED_OUT_DIR / "fred_cache.json"
 
+# How far back to fetch. The deepest consumer is a 1260-trading-day percentile
+# rank (gov_data's recession scoring on BAMLH0A0HYM2 and VIXCLS, and credit.js's
+# 5-year option). 1260 trading days is almost exactly five calendar years, so a
+# flat five-year cut would land on the boundary and lose the window to holidays.
+# The extra quarter keeps it whole.
+LOOKBACK_YEARS = 5
+LOOKBACK_MARGIN_DAYS = 90
+
+
+def _observation_start(today: datetime.date | None = None) -> datetime.date:
+    today = today or datetime.date.today()
+    # Feb 29 has no counterpart five years back; step to Feb 28 rather than raise.
+    try:
+        anchor = today.replace(year=today.year - LOOKBACK_YEARS)
+    except ValueError:
+        anchor = today.replace(year=today.year - LOOKBACK_YEARS, day=28)
+    return anchor - datetime.timedelta(days=LOOKBACK_MARGIN_DAYS)
+
 
 def _get_all_series(config: dict) -> list[dict]:
     if 'categories' in config:
@@ -46,6 +64,9 @@ class FREDFetcher(BaseFetcher):
         config = json.loads(CONFIG_PATH.read_text())
         FRED_OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+        start = _observation_start()
+        print(f"Observation window: {start} → today")
+
         all_fetched: dict = {}
 
         for entry in _get_all_series(config):
@@ -53,7 +74,7 @@ class FREDFetcher(BaseFetcher):
             name = entry["name"]
             print(f"Fetching {series_id} ({name})...")
             try:
-                s = fred.get_series(series_id).dropna()
+                s = fred.get_series(series_id, observation_start=start).dropna()
                 rows = [(str(d.date()), float(v)) for d, v in s.items()]
                 self.db.upsert_fred(series_id, rows)
                 all_fetched[series_id] = rows
@@ -78,9 +99,8 @@ def _observed_at(all_series: dict, previous: dict) -> dict:
     workflow commits every run and is therefore the durable record.
 
     A series whose newest observation is unchanged keeps its existing stamp. One
-    with no prior record is left unknown rather than stamped with today: the first
-    run after this ships has nothing to compare against, and dating every series
-    to that run would be the same false precision this replaces.
+    with no prior record is stamped with today, because that is what happened —
+    the run it first appears in is the run we received it.
     """
     prev_series = previous.get("series") or {}
     prev_latest = {sid: rows[-1][0] for sid, rows in prev_series.items() if rows}
@@ -92,7 +112,7 @@ def _observed_at(all_series: dict, previous: dict) -> dict:
         if not rows:
             continue
         if sid not in prev_latest:
-            stamps[sid] = None
+            stamps[sid] = today
         elif prev_latest[sid] != rows[-1][0]:
             stamps[sid] = today
         else:

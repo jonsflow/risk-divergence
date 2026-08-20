@@ -547,7 +547,10 @@ async function init() {
     const metaEl   = document.getElementById('meta');
     if (dfedtaru?.length) {
       const lastDate = dfedtaru[dfedtaru.length - 1].date;
-      metaEl.textContent = `Last updated: ${lastDate} · ${decisions.length} rate decisions detected since 2008`;
+      // Derived from the data, not fixed: the fetch window bounds how far back
+      // decisions can be detected, so a hardcoded year goes stale when it moves.
+      const sinceYear = dfedtaru[0].date.slice(0, 4);
+      metaEl.textContent = `Last updated: ${lastDate} · ${decisions.length} rate decisions detected since ${sinceYear}`;
     } else {
       metaEl.textContent = 'Data loaded';
     }

@@ -21,7 +21,31 @@ python3 -m pipeline.run generate
 ```
 
 `FREDFetcher` pulls the full history of every series in `config/fred_config.json`
-into `risk_model.db`; `generate` writes the bundle the browser reads.
+into `risk_model.db` and writes the browser bundle in the same step. `generate`
+does not touch FRED.
+
+## The observation window
+
+Every run re-fetches every series in full, over a rolling window of five years plus
+90 days (`LOOKBACK_YEARS` / `LOOKBACK_MARGIN_DAYS` in the fetcher). The bundle is
+~21k rows / 428 KB.
+
+Consumer depths:
+
+| Consumer | Depth |
+|----------|-------|
+| `gov_data.js` recession scoring — percentile rank on `BAMLH0A0HYM2`, `VIXCLS` | 1260 trading days |
+| `credit.js` history selector | 1260 trading days |
+| `fed_chair.js` year-over-year charts | 13 monthly points before `CHART_START` (2025-01-01) |
+| `fomc.js` charts | `CHART_START` forward |
+| `gov_data.js` NY Fed recession tab (`T10Y2Y`), Sahm rule chart (`UNRATE`) | unbounded — draws the full window |
+
+1260 trading days is within days of five calendar years; the 90-day margin keeps
+the window whole against holidays.
+
+`BAMLH0A0HYM2` is capped upstream: FRED returns 785 rows starting 2023-08-21
+regardless of `observation_start`, as ICE restricts redistribution of its BofA
+indices to a rolling window. Its percentile ranks against that shorter sample.
 
 ## Bundle format
 
@@ -30,10 +54,36 @@ into `risk_model.db`; `generate` writes the bundle the browser reads.
 
 ```json
 {
-  "fetched_at": "2026-08-10T14:21:20Z",
+  "fetched_at": "2026-08-18T20:42:47Z",
+  "observed_at": { "CPILFESL": "2026-08-12", "EFFR": "2026-08-18" },
   "series": { "T10Y2Y": [["2024-01-02", 3.45], ["2024-01-03", 3.47]] }
 }
 ```
+
+`fetched_at` is when the run happened. `observed_at` is per series: the date that
+series' newest observation first reached us.
+
+### observed_at
+
+FRED dates an observation by its reference period, not its release date: a CPI row
+dated `2026-07-01` is the July print, published in mid-August.
+
+The fetcher compares each series' newest observation against the previous bundle
+read back off disk, and stamps:
+
+| Case | Stamp |
+|------|-------|
+| Newest observation date changed | today |
+| Newest observation date unchanged | the existing stamp, carried forward |
+| Series has no prior record | today |
+
+`data/fred/fred_cache.json` is therefore durable state, not a derived artifact —
+the only state surviving between CI runs, as `risk_model.db` is gitignored and
+rebuilt empty. The workflow must keep committing it; otherwise every stamp resets
+to the current date on the next run.
+
+`scripts/backfill_fred_observed_at.py` recovers stamps by walking the bundle's git
+history oldest-first. Dry-run by default, `--write` to apply.
 
 Per-series `data/fred/{ID}.csv` files used to be written alongside it. They were
 removed: nothing read them, the workflow never committed them, and seeding them
