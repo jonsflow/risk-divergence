@@ -79,6 +79,33 @@ function isMarketOpenForDate(dateStr) {
   return sessionPhase() ? isEodReady() : true;
 }
 
+// Sizing has two inputs in the framework (docs/trading-rules.md): the day grade
+// sets a posture for the whole session, and each trade's confluence score scales
+// within it. Regime is not one of them — Step 2 gates which patterns are valid,
+// never the size. Both live here so Step 1 and Step 4 cannot drift apart.
+const DAY_POSTURE = {
+  'A+': { label: 'Full',     factor: 1,   note: 'ideal day — full size' },
+  'A':  { label: 'Full',     factor: 1,   note: 'good day — full size' },
+  'B':  { label: 'Half',     factor: 0.5, note: 'mixed day — reduce size 50%' },
+  'C':  { label: 'No trades', factor: 0,  note: 'sit out' },
+  'F':  { label: 'No trades', factor: 0,  note: 'stay in cash' },
+};
+
+function dayPosture(grade) {
+  return DAY_POSTURE[grade] || { label: '—', factor: 1, note: '' };
+}
+
+/** Confluence scaling for one trade, out of 8. */
+function confluenceFactor(score) {
+  return score >= 6 ? 1 : score >= 4 ? 0.75 : 0.5;
+}
+
+/** Day posture × confluence, as a percentage string. */
+function effectiveSize(grade, score) {
+  const pct = dayPosture(grade).factor * confluenceFactor(score) * 100;
+  return Number.isInteger(pct) ? `${pct}%` : `${pct.toFixed(1)}%`;
+}
+
 function eodGuardHTML(dateStr) {
   if (isWeekend(dateStr)) {
     return `<div style="background:#1e2330; border-left:4px solid #6b7280; padding:14px 16px; border-radius:4px; margin-bottom:16px;">
@@ -383,6 +410,13 @@ function renderDayQuality() {
         </div>`;
       }
     }
+    const posture = dayPosture(grade);
+    ps += `
+      <div>
+        <div class="muted" style="font-size:0.72em; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;">Size Posture</div>
+        <strong style="color:${gradeColor};">${posture.label}</strong>
+        ${posture.note ? `<div class="muted" style="font-size:0.72em; margin-top:1px;">${posture.note}</div>` : ''}
+      </div>`;
     if (pmH != null && pmL != null) {
       ps += `
       <div>
@@ -681,6 +715,10 @@ function scoreConfluences() {
     scored.forEach(trade => {
       const sc      = trade.score >= 6 ? '#10b981' : trade.score >= 4 ? '#f59e0b' : '#3b82f6';
       const szLabel = trade.score >= 6 ? 'Full Size' : trade.score >= 4 ? '75% Size' : '50% Size';
+      // Only worth stating when the day scales it — on a full-size day the
+      // effective size is the confluence size, and repeating it is noise.
+      const grade   = cacheData.day_quality?.grade;
+      const eff     = dayPosture(grade).factor === 1 ? null : effectiveSize(grade, trade.score);
       const wdBadge = trade.weekdayEdge
         ? `<span style="background:#22242a; border:1px solid #10b981; color:#10b981; padding:1px 7px; border-radius:3px; font-size:0.75em; margin-left:6px;">Tue–Thu ✓</span>`
         : `<span style="background:#22242a; border:1px solid #4b5563; color:#4b5563; padding:1px 7px; border-radius:3px; font-size:0.75em; margin-left:6px;">Mon/Fri</span>`;
@@ -695,7 +733,10 @@ function scoreConfluences() {
             </span>
             ${wdBadge}
           </div>
-          <div style="font-size: 0.8em; font-weight: bold; color: ${sc}; margin-bottom: 6px;">${szLabel}</div>
+          <div style="font-size: 0.8em; font-weight: bold; color: ${sc}; margin-bottom: 6px;">
+            ${szLabel}
+            ${eff !== null ? `<span class="muted" style="font-weight:normal;"> → effective ${eff}</span>` : ''}
+          </div>
           <div style="font-size: 0.8em;">`;
 
       Object.entries(trade.checks).forEach(([key, val]) => {
@@ -850,71 +891,6 @@ function renderRecommendations(scored) {
 }
 
 // =============================================================================
-// STEP 6: POSITION SIZE CALCULATOR
-// =============================================================================
-
-function renderPositionCalc(scored) {
-  if (scored.length === 0) {
-    document.getElementById('step6Content').innerHTML = '';
-    return;
-  }
-
-  let html = `
-    <div style="margin-bottom: 16px;">
-      <label for="accountInput" class="muted">Account Size ($)</label>
-      <input type="number" id="accountInput" value="50000" min="1000" step="1000"
-             style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 1em;">
-    </div>
-    <div id="positionSizes" style="display: grid; gap: 12px;">`;
-
-  scored.forEach(trade => {
-    const stopDist = trade.data.atr_14 * 1.5;
-    const szLabel  = trade.score >= 6 ? '100%' : trade.score >= 4 ? '75%' : '50%'; // out of 8
-
-    html += `
-      <div class="pill metric-grid">
-        <div>
-          <div class="muted">${trade.symbol}</div>
-          <strong class="symSize_${trade.symbol}">—</strong>
-        </div>
-        <div>
-          <div class="muted">Risk</div>
-          <strong class="symRisk_${trade.symbol}">—</strong>
-        </div>
-        <div>
-          <div class="muted">Stop Dist</div>
-          <strong>${stopDist.toFixed(2)}</strong>
-        </div>
-        <div>
-          <div class="muted">Size Mod</div>
-          <strong>${szLabel}</strong>
-        </div>
-      </div>`;
-  });
-
-  html += `</div>`;
-  document.getElementById('step6Content').innerHTML = html;
-
-  document.getElementById('accountInput').addEventListener('change', () => updatePositionSizes(scored));
-  updatePositionSizes(scored);
-}
-
-function updatePositionSizes(scored) {
-  const account      = parseFloat(document.getElementById('accountInput').value) || 50000;
-  const riskPerTrade = account * 0.01;
-
-  scored.forEach(trade => {
-    const stopDist      = trade.data.atr_14 * 1.5;
-    const confluenceMod = trade.score >= 6 ? 1.0 : trade.score >= 4 ? 0.75 : 0.5;
-    const posSize       = Math.floor((riskPerTrade / stopDist) * confluenceMod);
-    const riskAmount    = posSize * stopDist;
-
-    document.querySelector(`.symSize_${trade.symbol}`).textContent = `${posSize} shares`;
-    document.querySelector(`.symRisk_${trade.symbol}`).textContent = `$${riskAmount.toFixed(0)}`;
-  });
-}
-
-// =============================================================================
 // EOD TAB
 // =============================================================================
 
@@ -922,10 +898,12 @@ function renderEodOutcomes(scored) {
   const el = document.getElementById('eodContent');
   if (!el) return;
 
-  // Guard: if the session for the viewed date hasn't completed yet, show a guard
-  // instead of whatever stale content might be in the DOM from a prior render.
-  if (viewingDate && !isMarketOpenForDate(viewingDate)) {
-    el.innerHTML = eodGuardHTML(viewingDate);
+  // Guard: this tab describes the finished session, so it stays empty until the
+  // session is complete — per the cache phase contract. isMarketOpenForDate only
+  // answers whether the date trades at all, which is true all through a live
+  // session, so completeness has to be checked too.
+  if ((viewingDate && !isMarketOpenForDate(viewingDate)) || !isEodReady()) {
+    el.innerHTML = eodGuardHTML(viewingDate || todayET());
     return;
   }
 
@@ -1258,7 +1236,7 @@ function renderEodOutcomes(scored) {
 // =============================================================================
 
 function renderAll() {
-  ['step-2','step-3','step-4','step-5','step-6'].forEach(id => {
+  ['step-2','step-3','step-4','step-5'].forEach(id => {
     document.getElementById(id).style.display = '';
   });
 
@@ -1266,7 +1244,7 @@ function renderAll() {
   renderDayQuality();
 
   if (cacheData.market_closed) {
-    ['step-2','step-3','step-4','step-5','step-6'].forEach(id => {
+    ['step-2','step-3','step-4','step-5'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
     // Clear EOD tab
@@ -1275,18 +1253,17 @@ function renderAll() {
     return;
   }
 
+  // Steps 2-6 read regime, active_patterns and the per-symbol indicators, all of
+  // which the generator writes in every phase from bars prior to session_date.
+  // None of them reads eod_outcome — only the EOD tab does, and it guards itself.
+  // So they render whatever the phase, and the plan is available pre-open.
   if (!isEodReady()) {
-    ['step-2','step-3','step-4','step-5','step-6'].forEach(id => {
-      document.getElementById(id).style.display = 'none';
-    });
     document.getElementById('step1Content').insertAdjacentHTML('beforeend',
       `<div class="muted" style="margin-top:12px; font-size:0.85em;">
-        Steps 2-6 (ORB, opening range, EOD outcomes) available after the post-close report — check back after 4:15 PM ET.
+        ${sessionPhase() === 'intraday'
+          ? 'Session in progress — the plan below is built from prior sessions and premarket. Outcomes appear after the post-close report.'
+          : "Pre-open — the plan below is built from prior sessions and premarket. Outcomes appear after the post-close report."}
       </div>`);
-    // Also clear the EOD tab so stale data doesn't persist
-    const eodEl = document.getElementById('eodContent');
-    if (eodEl) eodEl.innerHTML = eodGuardHTML(viewingDate || todayET());
-    return;
   }
 
   renderRegime();
@@ -1294,13 +1271,12 @@ function renderAll() {
   const scored = scoreConfluences();
   scoredTrades = scored;
   renderRecommendations(scored);
-  renderPositionCalc(scored);
   renderEodOutcomes(scored);
 }
 
 function renderWeekend(dateStr) {
   viewingDate = dateStr;
-  ['step-2','step-3','step-4','step-5','step-6'].forEach(id =>
+  ['step-2','step-3','step-4','step-5'].forEach(id =>
     document.getElementById(id).style.display = 'none');
   document.getElementById('headerMeta').textContent = dateStr;
   document.getElementById('dayQualityBadge').innerHTML =
@@ -1329,7 +1305,7 @@ async function loadAndRender(dateStr) {
   const response = await fetch(url);
   if (!response.ok) {
     if (response.status === 404) {
-      ['step-2','step-3','step-4','step-5','step-6'].forEach(id =>
+      ['step-2','step-3','step-4','step-5'].forEach(id =>
         document.getElementById(id).style.display = 'none');
       document.getElementById('step1Content').innerHTML =
         `<div style="color: #9ca3af; padding: 12px;">No data available for ${dateStr}.</div>`;
@@ -1386,7 +1362,6 @@ async function init() {
         const scored = scoreConfluences();
         scoredTrades = scored;
         renderRecommendations(scored);
-        renderPositionCalc(scored);
         renderEodOutcomes(scored);
       }
     });

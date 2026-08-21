@@ -126,6 +126,7 @@ each file's own heading.
 - `pair-candidates.md` — Divergence Pair Candidates
 - `fred-data.md` — FRED Data
 - `trading-vix-bug.md` — Trading Generator: VIX Is Always Null
+- `portfolio-tracking.md` — Portfolio Allocation & Paper Trade Tracking
 - `gov-risk-score-research.md` — Research & Implementation Plan
 - `fomc-june-2026-research.md` — FOMC Meeting, June 17 2026
 - `fomc-july-2026-review.md` — FOMC July 28–29, 2026: Statement, Warsh Press Conference, and the News Around It
