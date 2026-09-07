@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-07T18:09:41.444522+00:00",
+  "generated": "2026-09-07T22:52:45.364485+00:00",
   "market_closed": false,
   "day_quality": {
     "grade": "A",
@@ -399,17 +399,17 @@
       "open": 80351.4,
       "high": 80387.91,
       "low": 78773.36,
-      "close": 79160.58,
-      "volume": 24799967232,
+      "close": 78939.09,
+      "volume": 24486969344,
       "volume_above_20d": false,
       "atr_14": 2335.49,
       "atr_20d_avg": 2510.04,
       "atr_above_avg": false,
-      "rsi_14": 62.9,
-      "macd_line": -3570.2176,
-      "macd_signal": -5871.7829,
-      "macd_histogram": 2301.5653,
-      "ma_20": 77978.09,
+      "rsi_14": 62.1,
+      "macd_line": -3553.8113,
+      "macd_signal": -5868.5016,
+      "macd_histogram": 2314.6903,
+      "ma_20": 77967.02,
       "above_ma_20": true,
       "gap_pct": 0.0,
       "gap_type": "none",
@@ -426,14 +426,14 @@
       },
       "engulfing": "none",
       "squeeze": {
-        "status": "none",
-        "momentum": -346.4986,
-        "momentum_increasing": true
+        "status": "normal",
+        "momentum": -384.5436,
+        "momentum_increasing": false
       },
       "vwap": {
-        "vwap": 79027.49,
+        "vwap": 79053.26,
         "above_vwap": true,
-        "distance_pct": 0.17
+        "distance_pct": 0.38
       },
       "rsi_divergence": {
         "signal": "none",
@@ -452,20 +452,32 @@
         "day_range_pct": 2.05,
         "day_atr_multiple": 0.69
       },
-      "prior_setups": [],
+      "prior_setups": [
+        {
+          "pattern": "Outside Day",
+          "direction": "up",
+          "entry": 80530.65,
+          "stop": 79327.5,
+          "t1": 82335.37,
+          "triggered": false,
+          "stop_hit": false,
+          "hit_t1": false,
+          "hit_t2": false
+        }
+      ],
       "adr_20d": 2748.24,
       "adr_8d": 2674.13,
       "prev_range": 5321.33,
-      "day_type": "outside",
+      "day_type": "normal",
       "premarket": {
         "high": 79639.66,
         "low": 79395.02,
         "close": 79630.73
       },
       "last_hour": {
-        "high": null,
-        "low": null,
-        "close": null
+        "high": 79394.71,
+        "low": 79146.62,
+        "close": 79352.21
       }
     },
     "ETH": {
@@ -473,17 +485,17 @@
       "open": 2514.8,
       "high": 2534.02,
       "low": 2469.72,
-      "close": 2493.46,
-      "volume": 13652953088,
+      "close": 2481.47,
+      "volume": 13374400512,
       "volume_above_20d": false,
       "atr_14": 90.93,
       "atr_20d_avg": 104.2,
       "atr_above_avg": true,
-      "rsi_14": 63.8,
-      "macd_line": -103.4365,
-      "macd_signal": -203.6207,
-      "macd_histogram": 100.1842,
-      "ma_20": 2448.5,
+      "rsi_14": 62.6,
+      "macd_line": -102.5484,
+      "macd_signal": -203.4431,
+      "macd_histogram": 100.8947,
+      "ma_20": 2447.9,
       "above_ma_20": true,
       "gap_pct": 0.01,
       "gap_type": "none",
@@ -500,14 +512,14 @@
       },
       "engulfing": "none",
       "squeeze": {
-        "status": "normal",
-        "momentum": -3.2588,
-        "momentum_increasing": true
+        "status": "strong",
+        "momentum": -9.8551,
+        "momentum_increasing": false
       },
       "vwap": {
-        "vwap": 2483.54,
+        "vwap": 2485.07,
         "above_vwap": true,
-        "distance_pct": 0.4
+        "distance_pct": 0.43
       },
       "rsi_divergence": {
         "signal": "none",
@@ -515,7 +527,7 @@
       },
       "eod_outcome": {
         "orb_high": 2508.47,
-        "orb_low": 2481.92,
+        "orb_low": 2482.59,
         "orb_breached_up": true,
         "orb_breached_down": true,
         "orb_breached": true,
@@ -534,12 +546,12 @@
       "premarket": {
         "high": 2511.1,
         "low": 2488.41,
-        "close": 2508.23
+        "close": 2508.22
       },
       "last_hour": {
-        "high": null,
-        "low": null,
-        "close": null
+        "high": 2497.48,
+        "low": 2488.76,
+        "close": 2495.82
       }
     },
     "GLD": {
